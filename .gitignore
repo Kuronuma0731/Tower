@@ -1,0 +1,14 @@
+# OS
+Thumbs.db
+Desktop.ini
+
+# Unity (future)
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+*.csproj
+*.sln

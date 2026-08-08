@@ -20,6 +20,7 @@
 | `atk` | int | 攻擊 | 30 |
 | `def` | int | 防禦 | 24 |
 | `hp` | int | 生命 | 300 |
+| `agility` | int | 迴避率百分比 0–50（對應原版的敏欄）。D15：落空次數由此算死、順序隨機——玩家看得到閃避，總傷害仍是定值 |
 | `traits` | string | 特性組合，`\|` 分隔，空 = 無特性。合法值：`first_strike`（先攻）`multi_hit`（連擊）`pierce`（魔攻）`lifesteal`（吸血）。**支援可選參數** `名稱:值`——`multi_hit` 預設 2，`multi_hit:3` 即三連擊；`lifesteal` 預設 100%。MVP 四特性都用預設值，參數語法是為 11F+ 新特性預留的，**匯入器第一天就支援**，之後不用改資料格式 | `first_strike\|multi_hit` |
 | `gold_drop` | int | 擊殺金幣（D11 封閉經濟，總量設計時定死） | 200 |
 | `exp_drop` | int | 擊殺經驗 | 250 |

@@ -1,3 +1,5 @@
+using System;
+
 namespace Tower.Core.Combat
 {
     /// <summary>
@@ -7,6 +9,9 @@ namespace Tower.Core.Combat
     /// </summary>
     public static class CombatResolver
     {
+        /// <summary>安全閥：超過此出手數視為打不完（吸血/迴避的極端組合）。</summary>
+        private const int AttackCap = 100_000;
+
         public static CollisionOutcome ResolveCollision(in PlayerStats player, MonsterDefinition monster)
         {
             int playerHit = DamageFormula.PlayerHit(player, monster);
@@ -15,16 +20,23 @@ namespace Tower.Core.Combat
 
             int damagePerOccasion = DamageFormula.DamagePerOccasion(player, monster);
             int healPerOccasion = DamageFormula.HealPerOccasion(player, monster);
+            int agility = Math.Clamp(monster.Agility, 0, 90);
 
-            // 吸血：我方單擊 ≤ 每輪回復 → 淨削減歸零，不可擊殺
-            if (healPerOccasion > 0 && playerHit <= healPerOccasion)
+            // 每次出手的期望削減（計入迴避）；不足以抵銷吸血回復 → 不可擊殺
+            long netPerAttackTimes100 = (long)playerHit * (100 - agility) - (long)healPerOccasion * 100;
+            if (healPerOccasion > 0 && netPerAttackTimes100 <= 0)
                 return CollisionOutcome.Unwinnable;
 
             // 確定性模擬。我方先手；敵方出手發生在「我方一擊未殺」之後；
             // 先攻 = 開戰前額外一次敵方出手（同樣吃連擊倍數與吸血回復）。
             long monsterHp = monster.Hp;
             long loss = 0;
-            int rounds = 0;
+            int attacks = 0;
+            int misses = 0;
+
+            // D15 迴避：每次出手累加敏捷，滿 100 即落空一次——落空比例恰為敏捷%，
+            // 且**次數算死**。哪幾下落空由表現層隨機挑，總帳不受影響。
+            long evasionAccumulator = 0;
 
             if (monster.Traits.HasFlag(TraitSet.FirstStrike))
             {
@@ -34,16 +46,28 @@ namespace Tower.Core.Combat
 
             while (true)
             {
-                rounds++;
-                monsterHp -= playerHit;
-                if (monsterHp <= 0)
-                    break;
+                attacks++;
+                if (attacks > AttackCap)
+                    return CollisionOutcome.Unwinnable;
 
-                loss += damagePerOccasion;
+                evasionAccumulator += agility;
+                bool missed = evasionAccumulator >= 100;
+                if (missed)
+                {
+                    evasionAccumulator -= 100;
+                    misses++;
+                }
+                else
+                {
+                    monsterHp -= playerHit;
+                    if (monsterHp <= 0) break;
+                }
+
+                loss += damagePerOccasion;   // 落空與否，怪都會回擊
                 monsterHp += healPerOccasion;
             }
 
-            return CollisionOutcome.Win((int)loss, rounds);
+            return CollisionOutcome.Win((int)loss, attacks, misses);
         }
     }
 }

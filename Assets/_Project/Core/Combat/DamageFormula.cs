@@ -31,5 +31,18 @@ namespace Tower.Core.Combat
             => monster.Traits.HasFlag(TraitSet.Lifesteal)
                 ? DamagePerOccasion(player, monster)
                 : 0;
+
+        /// <summary>
+        /// D15 迴避：命中 <paramref name="hitsNeeded"/> 次所需的**總出手數**（含落空）。
+        /// 落空次數 = 總出手 − 命中數，由敏捷算死；順序隨機由表現層決定，總帳不受影響。
+        /// 敏捷上限鎖在 90，避免除以零。
+        /// </summary>
+        public static int AttacksNeeded(int hitsNeeded, MonsterDefinition monster)
+        {
+            int agi = Math.Clamp(monster.Agility, 0, 90);
+            if (agi <= 0 || hitsNeeded <= 0) return hitsNeeded;
+            // ceil(hitsNeeded / (1 − agi/100)) 用整數運算避免浮點誤差
+            return (int)(((long)hitsNeeded * 100 + (100 - agi) - 1) / (100 - agi));
+        }
     }
 }

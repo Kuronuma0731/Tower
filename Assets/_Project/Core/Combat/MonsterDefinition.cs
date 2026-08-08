@@ -18,13 +18,20 @@ namespace Tower.Core.Combat
         /// <summary>顯示名（monsters.csv 的 name_zh）。</summary>
         public string NameZh { get; }
 
+        /// <summary>
+        /// 敏捷＝迴避率百分比（0–50，對應原版的敏欄）。D15：落空次數算死、順序隨機——
+        /// 玩家看得到閃避，但總傷害仍是定值，預覽與驗證器不受影響。
+        /// </summary>
+        public int Agility { get; }
+
         public MonsterDefinition(
             string id, int atk, int def, int hp,
             TraitSet traits, int goldDrop, int expDrop, bool isGuardian,
-            string nameZh = "")
+            string nameZh = "", int agility = 0)
         {
             Id = id;
             NameZh = nameZh;
+            Agility = agility;
             Atk = atk;
             Def = def;
             Hp = hp;

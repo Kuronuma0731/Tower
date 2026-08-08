@@ -321,8 +321,21 @@ namespace Tower.Game
             var camHome = _cam.transform.position;
 
             int bumps = Mathf.Clamp(1 + outcome.Rounds / 12, 1, 3);
+            // D15：落空次數已算死，這裡只決定「哪幾下」演成閃避——看得到閃避，總帳不變
+            int missBumps = outcome.Rounds > 0
+                ? Mathf.Min(bumps - 1, Mathf.RoundToInt(bumps * (float)outcome.Misses / outcome.Rounds))
+                : 0;
+            var missAt = new HashSet<int>();
+            while (missAt.Count < missBumps) missAt.Add(Random.Range(0, bumps));
+
             for (int i = 0; i < bumps; i++)
             {
+                if (missAt.Contains(i))
+                {
+                    FloatMiss(entity.Pos);
+                    yield return Lerp(0.14f, _ => { }); // 落空：不撞、不震、不閃
+                    continue;
+                }
                 // 守關怪用暴擊音，一般怪用平 A——聽覺上就分得出這場的份量
                 _audio.Play(monster.IsGuardian ? AudioBank.Crit : AudioBank.Attack);
                 // 衝撞：朝怪物撞出 35% 格再回來
@@ -367,6 +380,16 @@ namespace Tower.Game
                 yield return null;
             }
             step(1f);
+        }
+
+        /// <summary>閃避提示（D15）。白字，跟紅色傷害數字分得開。</summary>
+        private void FloatMiss(in GridPos pos)
+        {
+            var tm = MakeText(null, WorldOf(pos) + new Vector3(0.25f, 0.3f, 0), 0.5f, TextAnchor.MiddleCenter, 130);
+            tm.text = S("msg_miss");
+            tm.color = new Color(0.95f, 0.95f, 1f);
+            if (_boardRoot != null) tm.transform.SetParent(_boardRoot.transform, true);
+            StartCoroutine(FloatUpAndFade(tm));
         }
 
         /// <summary>地圖上飄起的傷害數字（原版的紅字回饋）。</summary>

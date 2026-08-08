@@ -1,5 +1,6 @@
 id,text_zh
 msg_cannot_win,無法戰勝
+msg_miss,閃避！
 msg_lethal_blocked,預覽顯示死亡——此路不通
 msg_need_key_y,需要黃鑰匙
 msg_need_key_b,需要藍鑰匙

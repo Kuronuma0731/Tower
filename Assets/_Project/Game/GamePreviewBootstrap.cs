@@ -60,12 +60,14 @@ namespace Tower.Game
         };
 
         private TextMesh _statusText;
+        private TextMesh _floorBanner;
         private readonly TextMesh[] _keyCounts = new TextMesh[4]; // 黃/藍/紅鑰匙、沙漏
         private GameObject _receipt;
         private TextMesh _receiptTitle;
         private TextMesh _receiptLeft;
         private TextMesh _receiptRight;
         private TextMesh _receiptLoss;
+        private TextMesh _receiptReward;
         private SpriteRenderer _receiptIcon;
         private float _receiptUntil;
         private TextMesh _toastText;
@@ -203,6 +205,11 @@ namespace Tower.Game
 
         private void BuildHud()
         {
+            // ── 樓層橫幅（棋盤正上方，經典魔塔的招牌位置）──
+            MakeBackplate(new Vector3(0, 6.85f, 0), 4.2f, 0.95f, 0.9f, 90, "banner_bg");
+            _floorBanner = MakeText(null, new Vector3(0, 6.85f, 0), 0.55f, TextAnchor.MiddleCenter, 100);
+            _floorBanner.color = Color.white;
+
             // ── 狀態欄（左上，經典魔塔佈局）──
             MakeBackplate(new Vector3(-10.25f, 3.1f, 0), 5.9f, 6.9f, 0.84f, 90, "panel_status");
             var portrait = MakeSprite("hero_down", new Vector3(-12.05f, 5.35f, 0), 95, "portrait");
@@ -235,17 +242,20 @@ namespace Tower.Game
             iconGo.transform.localScale = new Vector3(1.9f, 1.9f, 1f);
             _receiptIcon = iconGo.AddComponent<SpriteRenderer>();
             _receiptIcon.sortingOrder = 120;
-            _receiptLeft = MakeText(_receipt.transform, new Vector3(-2.9f, 1.15f, 0), 0.48f, TextAnchor.UpperLeft, 120);
+            // 鏡像排版：怪物「標籤 值」在左、玩家「值 標籤」在右，標籤朝內（原版做法）
+            _receiptLeft = MakeText(_receipt.transform, new Vector3(-3.05f, 1.2f, 0), 0.46f, TextAnchor.UpperLeft, 120);
             _receiptLeft.alignment = TextAlignment.Left;
-            _receiptLeft.lineSpacing = 1.15f;
+            _receiptLeft.lineSpacing = 1.2f;
             var heroIcon = MakeSprite("hero_down", new Vector3(4.15f, 0.35f, 0), 120, "receipt_hero");
             heroIcon.transform.SetParent(_receipt.transform);
             heroIcon.transform.localScale = new Vector3(1.9f, 1.9f, 1f);
-            _receiptRight = MakeText(_receipt.transform, new Vector3(0.9f, 1.15f, 0), 0.48f, TextAnchor.UpperLeft, 120);
-            _receiptRight.alignment = TextAlignment.Left;
-            _receiptRight.lineSpacing = 1.15f;
-            _receiptLoss = MakeText(_receipt.transform, new Vector3(0, -1.75f, 0), 0.6f, TextAnchor.MiddleCenter, 120);
+            _receiptRight = MakeText(_receipt.transform, new Vector3(3.05f, 1.2f, 0), 0.46f, TextAnchor.UpperRight, 120);
+            _receiptRight.alignment = TextAlignment.Right;
+            _receiptRight.lineSpacing = 1.2f;
+            _receiptLoss = MakeText(_receipt.transform, new Vector3(0, -1.35f, 0), 0.5f, TextAnchor.MiddleCenter, 120);
             _receiptLoss.color = new Color(1f, 0.45f, 0.4f);
+            _receiptReward = MakeText(_receipt.transform, new Vector3(0, -2.0f, 0), 0.5f, TextAnchor.MiddleCenter, 120);
+            _receiptReward.color = new Color(1f, 0.55f, 0.85f); // 原版的桃紅獎勵列
             _receipt.SetActive(false);
 
             // 提示：棋盤中上（有訊息才出現）
@@ -265,13 +275,44 @@ namespace Tower.Game
         /// <summary>戰報：怪物 vs 勇者的結算對照（顯示用，非確認框——D7 不設確認）。</summary>
         private void ShowReceipt(MonsterDefinition m, in CollisionOutcome outcome)
         {
-            _receiptTitle.text = $"{m.NameZh}　{S("lbl_vs")}　{S("lbl_hero")}";
+            _receiptTitle.text = $"{m.NameZh}　　{S("lbl_vs")}　　{S("lbl_hero")}";
             _receiptIcon.sprite = GetSprite(MonsterSprites[m.Id]);
-            _receiptLeft.text = $"{S("lbl_atk")} {m.Atk}\n{S("lbl_def")} {m.Def}\n{S("lbl_hp")} {m.Hp}";
-            _receiptRight.text = $"{S("lbl_atk")} {_state.Atk}\n{S("lbl_def")} {_state.Def}\n{S("lbl_hp")} {_state.Hp}";
+            _receiptLeft.text =
+                $"{S("lbl_hp")}：{m.Hp}\n{S("lbl_atk")}：{m.Atk}\n{S("lbl_def")}：{m.Def}";
+            _receiptRight.text =
+                $"{_state.Hp}：{S("lbl_hp")}\n{_state.Atk}：{S("lbl_atk")}\n{_state.Def}：{S("lbl_def")}";
             _receiptLoss.text = $"{S("lbl_hp")} -{outcome.ExpectedLoss}";
+            _receiptReward.text =
+                $"{S("lbl_victory")}　{S("lbl_reward_exp")} +{m.ExpDrop}　{S("lbl_reward_gold")} +{m.GoldDrop}";
             _receipt.SetActive(true);
             _receiptUntil = Time.time + 2.2f;
+        }
+
+        /// <summary>地圖上飄起的傷害數字（原版的紅字回饋）。</summary>
+        private void FloatDamage(in GridPos pos, int amount)
+        {
+            var tm = MakeText(null, WorldOf(pos) + new Vector3(0, 0.3f, 0), 0.62f, TextAnchor.MiddleCenter, 130);
+            tm.text = $"-{amount}";
+            tm.color = new Color(1f, 0.32f, 0.28f);
+            if (_boardRoot != null) tm.transform.SetParent(_boardRoot.transform, true);
+            StartCoroutine(FloatUpAndFade(tm));
+        }
+
+        private System.Collections.IEnumerator FloatUpAndFade(TextMesh tm)
+        {
+            float t = 0f;
+            var start = tm.transform.position;
+            while (t < 0.9f)
+            {
+                t += Time.deltaTime;
+                float k = t / 0.9f;
+                tm.transform.position = start + new Vector3(0, k * 0.85f, 0);
+                var c = tm.color;
+                c.a = 1f - k * k;
+                tm.color = c;
+                yield return null;
+            }
+            if (tm != null) Destroy(tm.gameObject);
         }
 
         private GameObject MakeBackplate(Vector3 pos, float w, float h, float alpha, int order, string name)
@@ -484,6 +525,7 @@ namespace Tower.Game
                         if (outcome.ExpectedLoss >= _state.Hp) { Toast(S("msg_lethal_blocked")); return; }
                         Apply(new CollisionBattleCommand(entity.Eid, outcome, monster));
                         Destroy(_entityViews[entity.Eid]); // 標籤是子物件，一起銷毀
+                        FloatDamage(entity.Pos, outcome.ExpectedLoss);
                         ShowReceipt(monster, outcome);
                         return;
                 }
@@ -555,8 +597,10 @@ namespace Tower.Game
 
         private void RefreshHud()
         {
+            _floorBanner.text = _state.CurrentFloor == "F00"
+                ? S("gallery_name")
+                : $"{FloorLabel()}　{_floor.NameZh}";
             _statusText.text =
-                $"{FloorLabel()}\n" +
                 $"{S("lbl_hp")}　{_state.Hp}\n" +
                 $"{S("lbl_atk")}　{_state.Atk}\n" +
                 $"{S("lbl_def")}　{_state.Def}\n" +

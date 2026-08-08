@@ -92,8 +92,10 @@ D7 要求**回溯**，這決定了狀態管理的形狀：所有改變 `GameStat
 
 ```
 IGameCommand
-  ├─ Apply(GameState) → GameState
-  └─ Undo(GameState)  → GameState
+  ├─ Apply(GameState)   // 就地變更；Apply 後 Undo 必須讓狀態與原先完全相等
+  └─ Undo(GameState)
+
+GameState.Clone()       // 快照 = 深拷貝（樓層入口、指令戰前自動存檔都用它）
 
 SaveFile
   ├─ snapshots      : Map<FloorId, GameState>   // 每層入口的快照（外層防軟鎖）

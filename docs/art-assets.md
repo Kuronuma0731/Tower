@@ -139,7 +139,7 @@ pwsh tools/center-sprites.ps1 art/source/monsters art/sprites/monsters
 | 怪物 15 張 | ✅ 已入庫並置中。**但主體僅約 250px（佔畫布 21–29%）**——一般怪可用，`boss_gate_01` / `boss_warden_10` 建議全幅重生（首次重生失敗：頭被裁掉，退件） |
 | 道具 8 張 | ✅ 已入庫並置中（主體約 170–250px，道具無推近需求，夠用） |
 | 地形結構 9 張 | ✅ 已入庫。`tile_floor` / `tile_wall` 滿版且可無縫拼接，未經置中直接使用；其餘 7 張已置中 |
-| 互動與人物 6 張 | ⬜ 未生：`ent_shop` 商人、`ent_altar` 祭壇、`npc_guard_old` 老守衛、**主角三視角**（`hero_down`/`hero_up`/`hero_side`，同一角色連續生） |
+| 互動與人物 6 張 | 🔶 3/6：`hero_side`、`ent_shop`、`ent_altar` 已入庫。**退件重生中**（`art/rejected/`）：`hero_down`/`hero_up`/`npc_guard_old`——去背只去了白邊，角色背後留深色底板＋燒字＋鄰圖殘影 |
 
 ## 待補（現在不用生）
 

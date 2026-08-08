@@ -42,22 +42,7 @@ namespace Tower.Game
         private SpriteRenderer _heroRenderer;
         private Font _font;
 
-        private static readonly Dictionary<string, string> MonsterSprites = new Dictionary<string, string>
-        {
-            ["slime_green"] = "mon_slime_g", ["slime_red"] = "mon_slime_r", ["slime_blue"] = "mon_slime_b",
-            ["bat_cave"] = "mon_bat_cave", ["rat_giant"] = "mon_rat_giant", ["bandit"] = "mon_bandit",
-            ["skel_gray"] = "mon_skel_gray", ["skel_soldier"] = "mon_skel_soldier",
-            ["wasp_striker"] = "mon_wasp_striker", ["duelist_twin"] = "mon_duelist_twin",
-            ["vampbat_king"] = "mon_vampbat_king",
-            ["gatekeeper_biped"] = "boss_gate_01", ["warden_10"] = "boss_warden_10",
-        };
-
-        private static readonly Dictionary<string, string> ItemSprites = new Dictionary<string, string>
-        {
-            ["key_yellow"] = "item_key_y", ["key_blue"] = "item_key_b", ["key_red"] = "item_key_r",
-            ["potion_s"] = "item_potion_s", ["potion_l"] = "item_potion_l",
-            ["gem_atk"] = "item_gem_atk", ["gem_def"] = "item_gem_def", ["hourglass"] = "item_hourglass",
-        };
+        // sprite 對照集中在 SpriteMap——換素材只改那裡
 
         private TextMesh _statusText;
         private TextMesh _floorBanner;
@@ -175,15 +160,13 @@ namespace Tower.Game
             {
                 var pos = new GridPos(x, y);
                 bool isWall = _floor.Grid[pos] == TerrainType.Wall;
-                var go = MakeSprite(isWall ? "tile_wall" : "tile_floor", WorldOf(pos), 0, $"t_{x}_{y}");
-                go.GetComponent<SpriteRenderer>().color = isWall
-                    ? new Color(0.42f, 0.42f, 0.52f)   // 牆壓暗（遊測回饋：牆地難分）
-                    : new Color(1f, 0.98f, 0.92f);
+                // 像素素材本身已有明確的牆/地差異，不再額外染色
+                MakeSprite(isWall ? SpriteMap.TileWall : SpriteMap.TileFloor, WorldOf(pos), 0, $"t_{x}_{y}");
             }
 
             foreach (var e in _floor.Entities)
             {
-                string sprite = SpriteFor(e);
+                string sprite = SpriteMap.For(e);
                 if (sprite == null) continue;
                 var go = MakeSprite(sprite, WorldOf(e.Pos), 10, e.Eid);
                 _entityViews[e.Eid] = go;
@@ -203,10 +186,10 @@ namespace Tower.Game
 
         private void BuildHero()
         {
-            _hero = MakeSprite("hero_d0_f0", WorldOf(_state.Position), 20, "hero");
-            _heroRenderer = _hero.GetComponent<SpriteRenderer>();
-            _heroDir = 0;
+            _heroDir = SpriteMap.HeroDirDown;
             _heroFrame = 0;
+            _hero = MakeSprite(SpriteMap.Hero(_heroDir, _heroFrame), WorldOf(_state.Position), 20, "hero");
+            _heroRenderer = _hero.GetComponent<SpriteRenderer>();
         }
 
         private void BuildHud()
@@ -218,7 +201,7 @@ namespace Tower.Game
 
             // ── 狀態欄（左上，經典魔塔佈局）──
             MakeBackplate(new Vector3(-10.25f, 3.1f, 0), 5.9f, 6.9f, 0.84f, 90, "panel_status");
-            var portrait = MakeSprite("hero_down", new Vector3(-12.05f, 5.35f, 0), 95, "portrait");
+            var portrait = MakeSprite(SpriteMap.Hero(SpriteMap.HeroDirDown, 0), new Vector3(-12.05f, 5.35f, 0), 95, "portrait");
             portrait.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
             _statusText = MakeText(null, new Vector3(-12.9f, 4.15f, 0), 0.52f, TextAnchor.UpperLeft, 100);
             _statusText.alignment = TextAlignment.Left;
@@ -226,7 +209,11 @@ namespace Tower.Game
 
             // ── 鑰匙欄（左下）──
             MakeBackplate(new Vector3(-10.25f, -3.55f, 0), 5.9f, 5.5f, 0.84f, 90, "panel_keys");
-            string[] icons = { "item_key_y", "item_key_b", "item_key_r", "item_hourglass" };
+            string[] icons =
+            {
+                SpriteMap.Item["key_yellow"], SpriteMap.Item["key_blue"],
+                SpriteMap.Item["key_red"], SpriteMap.Item["hourglass"],
+            };
             for (int i = 0; i < icons.Length; i++)
             {
                 float y = -1.75f - i * 1.15f;
@@ -252,7 +239,7 @@ namespace Tower.Game
             _receiptLeft = MakeText(_receipt.transform, new Vector3(-3.05f, 1.2f, 0), 0.46f, TextAnchor.UpperLeft, 120);
             _receiptLeft.alignment = TextAlignment.Left;
             _receiptLeft.lineSpacing = 1.2f;
-            var heroIcon = MakeSprite("hero_down", new Vector3(4.15f, 0.35f, 0), 120, "receipt_hero");
+            var heroIcon = MakeSprite(SpriteMap.Hero(SpriteMap.HeroDirDown, 0), new Vector3(4.15f, 0.35f, 0), 120, "receipt_hero");
             heroIcon.transform.SetParent(_receipt.transform);
             heroIcon.transform.localScale = new Vector3(1.9f, 1.9f, 1f);
             _receiptRight = MakeText(_receipt.transform, new Vector3(3.05f, 1.2f, 0), 0.46f, TextAnchor.UpperRight, 120);
@@ -282,7 +269,7 @@ namespace Tower.Game
         private void ShowReceipt(MonsterDefinition m, in CollisionOutcome outcome)
         {
             _receiptTitle.text = $"{m.NameZh}　　{S("lbl_vs")}　　{S("lbl_hero")}";
-            _receiptIcon.sprite = GetSprite(MonsterSprites[m.Id]);
+            _receiptIcon.sprite = GetSprite(SpriteMap.Monster[m.Id]);
             _receiptLeft.text =
                 $"{S("lbl_hp")}：{m.Hp}\n{S("lbl_atk")}：{m.Atk}\n{S("lbl_def")}：{m.Def}";
             _receiptRight.text =
@@ -366,24 +353,6 @@ namespace Tower.Game
             mr.sortingOrder = order;
             return tm;
         }
-
-        private string SpriteFor(FloorEntity e) => e.Type switch
-        {
-            EntityType.Door => e.DoorTier switch
-            {
-                KeyTier.Yellow => "ent_door_y",
-                KeyTier.Blue => "ent_door_b",
-                _ => "ent_door_r",
-            },
-            EntityType.Stairs => e.Stairs == StairsDirection.Up ? "ent_stairs_up" : "ent_stairs_down",
-            EntityType.Npc => "npc_guard_old",
-            EntityType.Shop => "ent_shop",
-            EntityType.Altar => "ent_altar",
-            EntityType.Switch => "ent_switch",
-            EntityType.Monster => MonsterSprites.TryGetValue(e.Ref, out var m) ? m : null,
-            EntityType.Item => ItemSprites.TryGetValue(e.Ref, out var it) ? it : null,
-            _ => null,
-        };
 
         private GameObject MakeSprite(string spriteName, Vector3 pos, int order, string goName)
         {
@@ -554,15 +523,23 @@ namespace Tower.Game
                 Toast(S("msg_demo_end"), 5f);
         }
 
+        /// <summary>
+        /// 轉向並推進行走幀（D14 素材自帶 4 方向 × 4 幀）。
+        /// 走路幀序採 RPG Maker 慣例的 0-1-2-3 循環；轉向時歸零，讓每次轉身有明確起點。
+        /// </summary>
         private void SetFacing(string facing)
         {
-            _heroRenderer.sprite = facing switch
+            int dir = facing switch
             {
-                "up" => GetSprite("hero_up"),
-                "side_l" or "side_r" => GetSprite("hero_side"),
-                _ => GetSprite("hero_down"),
+                "up" => SpriteMap.HeroDirUp,
+                "side_l" => SpriteMap.HeroDirLeft,
+                "side_r" => SpriteMap.HeroDirRight,
+                _ => SpriteMap.HeroDirDown,
             };
-            _heroRenderer.flipX = facing == "side_r";
+            if (dir != _heroDir) { _heroDir = dir; _heroFrame = 0; }
+            else { _heroFrame = (_heroFrame + 1) % SpriteMap.HeroFrames; }
+            _heroRenderer.sprite = GetSprite(SpriteMap.Hero(_heroDir, _heroFrame));
+            _heroRenderer.flipX = false; // 素材四方向齊備，不需鏡像
         }
 
         private void Apply(IGameCommand cmd)

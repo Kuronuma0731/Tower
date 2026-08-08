@@ -40,6 +40,8 @@ namespace Tower.Game
         private GameObject _boardRoot;
         private GameObject _hero;
         private SpriteRenderer _heroRenderer;
+        private Camera _cam;
+        private bool _busy;   // 戰鬥演出中：凍結輸入
         private Font _font;
 
         // sprite 對照集中在 SpriteMap——換素材只改那裡
@@ -142,7 +144,7 @@ namespace Tower.Game
             foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) Destroy(l.gameObject);
 
             var camGo = new GameObject("Main Camera");
-            var cam = camGo.AddComponent<Camera>();
+            var cam = _cam = camGo.AddComponent<Camera>();
             cam.orthographic = true;
             cam.orthographicSize = 7.2f;
             cam.backgroundColor = new Color(0.07f, 0.06f, 0.09f);
@@ -279,6 +281,68 @@ namespace Tower.Game
                 $"{S("lbl_victory")}　{S("lbl_reward_exp")} +{m.ExpDrop}　{S("lbl_reward_gold")} +{m.GoldDrop}";
             _receipt.SetActive(true);
             _receiptUntil = Time.time + 2.2f;
+        }
+
+        /// <summary>
+        /// 碰撞戰演出：衝撞 → 命中閃白 → 鏡頭震動 → 怪物消滅 → 傷害數字 → 戰報。
+        /// 刻意不做逐回合動畫（D1 是一次結算）——這是「撞上去的一瞬間」，總長 0.42 秒。
+        /// 回合數多的戰鬥衝撞次數也多（上限 3 次），讓硬仗在體感上就是比較久。
+        /// </summary>
+        private System.Collections.IEnumerator BattleSequence(
+            FloorEntity entity, MonsterDefinition monster, CollisionOutcome outcome)
+        {
+            _busy = true;
+
+            var view = _entityViews.TryGetValue(entity.Eid, out var v) ? v : null;
+            var sr = view != null ? view.GetComponent<SpriteRenderer>() : null;
+            var heroHome = _hero.transform.position;
+            var target = WorldOf(entity.Pos);
+            var camHome = _cam.transform.position;
+
+            int bumps = Mathf.Clamp(1 + outcome.Rounds / 12, 1, 3);
+            for (int i = 0; i < bumps; i++)
+            {
+                // 衝撞：朝怪物撞出 35% 格再回來
+                yield return Lerp(0.07f, t => _hero.transform.position =
+                    Vector3.Lerp(heroHome, Vector3.Lerp(heroHome, target, 0.35f), t));
+
+                // 命中：怪物閃白＋放大，鏡頭一震
+                if (sr != null)
+                {
+                    sr.color = Color.white;
+                    view.transform.localScale = Vector3.one * 1.18f;
+                }
+                float shake = 0.09f;
+                yield return Lerp(0.09f, t =>
+                {
+                    _cam.transform.position = camHome + (Vector3)(Random.insideUnitCircle * shake * (1f - t));
+                    if (sr != null) sr.color = Color.Lerp(Color.white, new Color(1f, 0.45f, 0.4f), t);
+                });
+
+                if (sr != null) view.transform.localScale = Vector3.one;
+                yield return Lerp(0.06f, t => _hero.transform.position =
+                    Vector3.Lerp(Vector3.Lerp(heroHome, target, 0.35f), heroHome, t));
+            }
+
+            _hero.transform.position = heroHome;
+            _cam.transform.position = camHome;
+
+            if (view != null) Destroy(view); // 預覽標籤是子物件，一起走
+            FloatDamage(entity.Pos, outcome.ExpectedLoss);
+            ShowReceipt(monster, outcome);
+            _busy = false;
+        }
+
+        private System.Collections.IEnumerator Lerp(float seconds, System.Action<float> step)
+        {
+            float t = 0f;
+            while (t < seconds)
+            {
+                t += Time.deltaTime;
+                step(Mathf.Clamp01(t / seconds));
+                yield return null;
+            }
+            step(1f);
         }
 
         /// <summary>地圖上飄起的傷害數字（原版的紅字回饋）。</summary>
@@ -425,6 +489,8 @@ namespace Tower.Game
             if (_toastText.gameObject.activeSelf && Time.time >= _toastUntil)
                 _toastText.gameObject.SetActive(false);
 
+            if (_busy) return; // 戰鬥演出中
+
             // 戰報開著：任意鍵或逾時關閉，期間凍結移動
             if (_receipt != null && _receipt.activeSelf)
             {
@@ -501,9 +567,7 @@ namespace Tower.Game
                         if (!outcome.Winnable) { Toast(S("msg_cannot_win")); return; }
                         if (outcome.ExpectedLoss >= _state.Hp) { Toast(S("msg_lethal_blocked")); return; }
                         Apply(new CollisionBattleCommand(entity.Eid, outcome, monster));
-                        Destroy(_entityViews[entity.Eid]); // 標籤是子物件，一起銷毀
-                        FloatDamage(entity.Pos, outcome.ExpectedLoss);
-                        ShowReceipt(monster, outcome);
+                        StartCoroutine(BattleSequence(entity, monster, outcome));
                         return;
                 }
             }

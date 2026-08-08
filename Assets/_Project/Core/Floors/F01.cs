@@ -24,20 +24,22 @@ namespace Tower.Core.Floors
 
         public static FloorDefinition Build()
         {
+            // 三段式結構（經典魔塔版面）：下層入口廳 → 主門 → 上層大廳 → 樓梯。
+            // 兩側 x1/x11 走廊在上層形成迴圈，讓探索不是單線。
             var rows = new[]
             {
                 "WWWWWWWWWWWWW", // y0
-                "W...........W", // y1  ← 上樓梯 (6,1)
-                "W...........W", // y2
-                "W...........W", // y3  ← 黃鑰匙 k2 (11,3)、史萊姆 (6,3)
-                "W...........W", // y4
-                "W...........W", // y5
-                "WWWWWW.WWWWWW", // y6  ← 主門 d1 (6,6)
-                "W...........W", // y7
-                "WWW.......WWW", // y8  ← 史萊姆 (6,8)
-                "W...........W", // y9  ← 左口袋 [藥(1,9) 蝙蝠(2,9)] 門(3,9)；右口袋 門(9,9) [骷髏(10,9) 藥(11,9)]
-                "WWW.......WWW", // y10
-                "W...........W", // y11 ← 鑰匙 k1 (1,11)、守衛 NPC (5,11)、spawn (6,11)
+                "W...........W", // y1   上層頂廊：上樓梯 (6,1)
+                "W.WWW...WWW.W", // y2
+                "W.W.......W.W", // y3   上層大廳：史萊姆 (4,3) 站在主路旁，可繞過
+                "W.W.WW.WW.W.W", // y4
+                "W...W...W...W", // y5
+                "WWWWWW.WWWWWW", // y6   主門 (6,6)——上下唯一通道
+                "W...........W", // y7   下層走廊
+                "WWW.WWWWW.WWW", // y8
+                "W...........W", // y9   口袋門 (2,9) 左、(10,9) 右
+                "W.W.......W.W", // y10  左口袋 蝙蝠(1,10)／右口袋 骷髏(11,10)
+                "W.W.......W.W", // y11  入口廳：鑰匙 (3,11)(9,11)、守衛 (5,11)、spawn (6,11)
                 "WWWWWWWWWWWWW", // y12
             };
 
@@ -47,19 +49,25 @@ namespace Tower.Core.Floors
                 new FloorEntity("F01_n01", EntityType.Npc, new GridPos(5, 11), dialogueId: "dlg_f01_intro"),
                 new FloorEntity("F01_s01", EntityType.Stairs, StairsUpPos, stairs: StairsDirection.Up),
 
+                // 三扇門、兩把鑰匙——主門必開，口袋只能選一個
                 new FloorEntity("F01_d01", EntityType.Door, new GridPos(6, 6), doorTier: KeyTier.Yellow),
-                new FloorEntity("F01_d02", EntityType.Door, new GridPos(3, 9), doorTier: KeyTier.Yellow),
-                new FloorEntity("F01_d03", EntityType.Door, new GridPos(9, 9), doorTier: KeyTier.Yellow),
+                new FloorEntity("F01_d02", EntityType.Door, new GridPos(2, 9), doorTier: KeyTier.Yellow),
+                new FloorEntity("F01_d03", EntityType.Door, new GridPos(10, 9), doorTier: KeyTier.Yellow),
 
-                new FloorEntity("F01_i01", EntityType.Item, new GridPos(1, 11), @ref: "key_yellow"),
-                new FloorEntity("F01_i02", EntityType.Item, new GridPos(11, 3), @ref: "key_yellow"),
-                new FloorEntity("F01_i03", EntityType.Item, new GridPos(1, 9), @ref: "potion_s"),
-                new FloorEntity("F01_i04", EntityType.Item, new GridPos(11, 9), @ref: "potion_s"),
+                new FloorEntity("F01_i01", EntityType.Item, new GridPos(3, 11), @ref: "key_yellow"),
+                new FloorEntity("F01_i02", EntityType.Item, new GridPos(9, 11), @ref: "key_yellow"),
+                new FloorEntity("F01_i03", EntityType.Item, new GridPos(1, 11), @ref: "potion_s"),
+                new FloorEntity("F01_i04", EntityType.Item, new GridPos(11, 11), @ref: "potion_s"),
 
-                new FloorEntity("F01_m01", EntityType.Monster, new GridPos(6, 8), @ref: "slime_green"),
-                new FloorEntity("F01_m02", EntityType.Monster, new GridPos(6, 3), @ref: "slime_green"),
-                new FloorEntity("F01_m03", EntityType.Monster, new GridPos(2, 9), @ref: "bat_cave"),
-                new FloorEntity("F01_m04", EntityType.Monster, new GridPos(10, 9), @ref: "skel_gray"),
+                // 主路上的史萊姆都可繞過——第一層不強迫戰鬥
+                new FloorEntity("F01_m01", EntityType.Monster, new GridPos(6, 9), @ref: "slime_green"),
+                // (6,3) 是 y4 中段唯一的向上開口——擺怪就會變成強迫戰鬥（驗證器抓過一次），移到旁邊
+                new FloorEntity("F01_m02", EntityType.Monster, new GridPos(4, 3), @ref: "slime_green"),
+                // 左口袋：好交易（虧 24 血換 150 血瓶）
+                new FloorEntity("F01_m03", EntityType.Monster, new GridPos(1, 10), @ref: "bat_cave"),
+                // 右口袋：現在打不贏——預覽會顯示紅 ✖，開這扇門等於白費一把鑰匙。
+                // 這是刻意的第一課：花錢之前先看數字（D13 的視覺語言在此首演）
+                new FloorEntity("F01_m04", EntityType.Monster, new GridPos(11, 10), @ref: "skel_gray"),
             };
 
             return new FloorDefinition("F01", FloorGrid.Parse(rows), entities, nameZh: "塔門之下");

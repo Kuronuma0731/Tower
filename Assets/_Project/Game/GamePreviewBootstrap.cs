@@ -197,10 +197,16 @@ namespace Tower.Game
             }
         }
 
+        // hero 表格列序（RPG Maker 慣例）：0 下 / 1 左 / 2 右 / 3 上
+        private int _heroDir;
+        private int _heroFrame;
+
         private void BuildHero()
         {
-            _hero = MakeSprite("hero_down", WorldOf(_state.Position), 20, "hero");
+            _hero = MakeSprite("hero_d0_f0", WorldOf(_state.Position), 20, "hero");
             _heroRenderer = _hero.GetComponent<SpriteRenderer>();
+            _heroDir = 0;
+            _heroFrame = 0;
         }
 
         private void BuildHud()
@@ -396,8 +402,10 @@ namespace Tower.Game
             string path = Path.Combine(Application.streamingAssetsPath, "sprites", name + ".png");
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             tex.LoadImage(File.ReadAllBytes(path));
-            tex.filterMode = FilterMode.Bilinear;
-            float ppu = Mathf.Max(tex.width, tex.height);
+            // D14 像素風：Point filter + 無壓縮 + PPU 對齊格子，否則整套糊掉
+            tex.filterMode = FilterMode.Point;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            float ppu = Mathf.Max(tex.width, tex.height); // 32px 素材 → 每格一單位
             s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), ppu);
             _sprites[name] = s;
             return s;

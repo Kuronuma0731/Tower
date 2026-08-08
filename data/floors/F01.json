@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "id": "F01",
+  "name_zh": "塔門之下",
+  "width": 13, "height": 13,
+  "tiles": [
+    "WWWWWWWWWWWWW",
+    "W...........W",
+    "W...........W",
+    "W...........W",
+    "W...........W",
+    "W...........W",
+    "WWWWWW.WWWWWW",
+    "W...........W",
+    "WWW.......WWW",
+    "W...........W",
+    "WWW.......WWW",
+    "W...........W",
+    "WWWWWWWWWWWWW"
+  ],
+  "entities": [
+    { "eid": "F01_sp1", "type": "spawn",   "x": 6,  "y": 11 },
+    { "eid": "F01_n01", "type": "npc",     "dialogue": "dlg_f01_intro", "x": 5, "y": 11 },
+    { "eid": "F01_s01", "type": "stairs",  "dir": "up", "x": 6, "y": 1 },
+    { "eid": "F01_d01", "type": "door",    "tier": "yellow", "x": 6, "y": 6 },
+    { "eid": "F01_d02", "type": "door",    "tier": "yellow", "x": 3, "y": 9 },
+    { "eid": "F01_d03", "type": "door",    "tier": "yellow", "x": 9, "y": 9 },
+    { "eid": "F01_i01", "type": "item",    "ref": "key_yellow", "x": 1,  "y": 11 },
+    { "eid": "F01_i02", "type": "item",    "ref": "key_yellow", "x": 11, "y": 3 },
+    { "eid": "F01_i03", "type": "item",    "ref": "potion_s",   "x": 1,  "y": 9 },
+    { "eid": "F01_i04", "type": "item",    "ref": "potion_s",   "x": 11, "y": 9 },
+    { "eid": "F01_m01", "type": "monster", "ref": "slime_green", "x": 6,  "y": 8 },
+    { "eid": "F01_m02", "type": "monster", "ref": "slime_green", "x": 6,  "y": 3 },
+    { "eid": "F01_m03", "type": "monster", "ref": "bat_cave",    "x": 2,  "y": 9 },
+    { "eid": "F01_m04", "type": "monster", "ref": "skel_gray",   "x": 10, "y": 9 }
+  ]
+}

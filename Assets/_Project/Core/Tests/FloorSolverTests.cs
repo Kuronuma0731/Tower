@@ -184,9 +184,11 @@ namespace Tower.Core.Tests
             var result = new FloorSolver(floor, monsters, BaseItems(), shops, altars)
                 .Solve(Arrival8F(), Entry, Exit);
             Assert.AreEqual(SolverStatus.Solvable, result.Status);
-            // 最優路線是 2攻+3防（120 經驗全額）：損血 532，670 − 532 = 138。
-            // 此數字由驗證器發現——人工手算的初版盤面表漏了這個組合（見 boss-test-8f.md 發現 2）。
-            Assert.AreEqual(138, result.BestExitHp);
+            // 戰鬥最優是 2攻+3防（120 經驗全額）：損血 532，戰後 138（此組合由驗證器發現，
+            // 人工手算的初版盤面表漏了它——見 boss-test-8f.md 發現 2）。
+            // 出口 HP 更高：殺守關怪後用戰利品（+200 金 +250 經驗）回頭掃貨——
+            // 血瓶 ×2（100+120 金）+ 祭壇 HP ×7（245 經驗）= +650 → 138 + 650 = 788。
+            Assert.AreEqual(788, result.BestExitHp);
         }
 
         [Test]

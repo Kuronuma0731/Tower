@@ -164,11 +164,10 @@ namespace Tower.Core.Simulation
             // 閉包：BFS 可達區 + 自動撿免費道具（撿了可能開出新區域，做到不動點）
             var reach = Closure(s, startPos);
 
-            if (reach.Contains(exitPos))
-            {
-                if (s.Hp > _bestExitHp) _bestExitHp = s.Hp;
-                return; // 此分支已達成，繼續讓其他分支尋找更好剩餘（由呼叫端枚舉）
-            }
+            if (reach.Contains(exitPos) && s.Hp > _bestExitHp)
+                _bestExitHp = s.Hp;
+            // 注意：出口可達不代表該收手——之後的動作（開口袋、拿血瓶）可能帶著更多 HP 離場。
+            // 繼續枚舉，讓支配剪枝負責收斂。
 
             if (Dominated(s)) return;
 

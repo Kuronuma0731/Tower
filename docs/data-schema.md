@@ -100,10 +100,10 @@ shops.csv:  shop_id, item_id, base_price, price_step     // 遞增價：第 n �
             shop_f03, potion_s, 80, 20
             shop_f03, key_yellow, 50, 25
 
-altars.csv: altar_id, stat, exp_cost, gain, cost_step    // 祭壇曲線待決：cost_step 先填 0（固定價），定案後改數字即可，不動格式
-            altar_std, atk, 20, 1, 0
-            altar_std, def, 20, 1, 0
-            altar_std, hp,  20, 50, 0
+altars.csv: altar_id, stat, exp_cost, gain, cost_step    // 已定遞增價（D8 衍生）：第 n 次同屬性 = exp_cost + (n−1)×cost_step，各屬性獨立計數；5 為佔位，平衡期調
+            altar_std, atk, 20, 1, 5
+            altar_std, def, 20, 1, 5
+            altar_std, hp,  20, 50, 5
 ```
 
 遞增計數的鍵格式：`PurchaseCounts["<shop_id>:<item_id>"]`（祭壇同款：`"<altar_id>:<stat>"`）——每間店、每個品項獨立計數，兩間商店賣同款血瓶不互相抬價。

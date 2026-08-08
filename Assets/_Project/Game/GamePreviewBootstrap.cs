@@ -10,9 +10,10 @@ namespace Tower.Game
 {
     /// <summary>
     /// 第 3 步最小可玩版（工程預覽）：F01 + 方向鍵移動 + 碰撞戰 + 鑰匙門 + 傷害預覽。
-    /// 整個場景在執行期自建——任何空場景按 Play 即可執行，不依賴 .unity 內容。
-    /// 素材與文本從 StreamingAssets 讀（正式匯入管線是後續步驟；文字守鐵則：不寫死）。
-    /// 所有狀態變更走 IGameCommand（D7），指令流已記錄，回溯 UI 之後接上。
+    /// 場景執行期自建；任何空場景按 Play 即可。素材與文本從 StreamingAssets 讀。
+    ///
+    /// UI 全部是「世界空間」物件（TextMesh + 背板），壓在棋盤頂/底的牆排上——
+    /// 首次遊測教訓：螢幕空間 IMGUI 會被 Game 視窗縮放裁掉或偏移，世界空間與棋盤共存亡。
     /// </summary>
     public sealed class GamePreviewBootstrap : MonoBehaviour
     {
@@ -35,15 +36,21 @@ namespace Tower.Game
             = new Dictionary<string, List<(string, string)>>();
 
         private readonly Dictionary<string, GameObject> _entityViews = new Dictionary<string, GameObject>();
+        private readonly Dictionary<string, TextMesh> _previewLabels = new Dictionary<string, TextMesh>();
         private GameObject _hero;
         private SpriteRenderer _heroRenderer;
+        private Font _font;
 
-        private string _toast;
+        private TextMesh _hudText;
+        private TextMesh _toastText;
         private float _toastUntil;
+        private GameObject _dialogueBox;
+        private TextMesh _dialogueSpeaker;
+        private TextMesh _dialogueText;
         private List<(string speaker, string text)> _activeDialogue;
         private int _dialogueIndex;
-        private Font _font;
-        private bool _reachedStairs;
+        private readonly HashSet<string> _dialogueSeenAll = new HashSet<string>();
+        private string _dialogueCurrentId;
 
         // ---- 建置 ----
 
@@ -58,31 +65,18 @@ namespace Tower.Game
             _monsters = F01.Monsters();
             _items = F01.Items();
 
-            _state = new GameState { Atk = 10, Def = 10, Hp = 550 }; // data/balance.csv（DataPipeline 落地前鏡像）
+            _state = new GameState { Atk = 10, Def = 10, Hp = 550 }; // data/balance.csv 鏡像
             _state.CurrentFloor = "F01";
             _state.Position = F01.SpawnPos;
 
             BuildCamera();
             BuildBoard();
             BuildHero();
+            BuildHud();
+            RefreshPreviews();
+            RefreshHud();
         }
 
-        private void BuildCamera()
-        {
-            var camGo = new GameObject("Main Camera");
-            var cam = camGo.AddComponent<Camera>();
-            cam.orthographic = true;
-            cam.orthographicSize = 8.2f;
-            cam.backgroundColor = new Color(0.07f, 0.06f, 0.09f);
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            camGo.transform.position = new Vector3(0, 0, -10);
-            camGo.tag = "MainCamera";
-        }
-
-        /// <summary>
-        /// 挑一個系統上真的存在的 CJK 字型——硬要名字會因 OS 語系回報名不同而失敗
-        /// （首次遊測實證：HUD 整條隱形）。正式 UI 必須改內嵌字型資產，不能依賴 OS 字型。
-        /// </summary>
         private static Font LoadCjkFont()
         {
             var installed = Font.GetOSInstalledFontNames();
@@ -95,20 +89,35 @@ namespace Tower.Game
             foreach (var want in preferred)
                 foreach (var have in installed)
                     if (string.Equals(have, want, System.StringComparison.OrdinalIgnoreCase))
-                        return Font.CreateDynamicFontFromOSFont(have, 16);
+                        return Font.CreateDynamicFontFromOSFont(have, 64);
 
             string[] fuzzy = { "JhengHei", "正黑", "YaHei", "雅黑", "Noto Sans", "Ming", "明體", "Gothic" };
             foreach (var pat in fuzzy)
                 foreach (var have in installed)
                     if (have.IndexOf(pat, System.StringComparison.OrdinalIgnoreCase) >= 0)
-                        return Font.CreateDynamicFontFromOSFont(have, 16);
+                        return Font.CreateDynamicFontFromOSFont(have, 64);
 
-            Debug.LogWarning("[TowerPreview] 找不到 CJK 字型，HUD 中文可能無法顯示");
+            Debug.LogWarning("[TowerPreview] 找不到 CJK 字型，中文可能無法顯示");
             return null;
         }
 
-        private Vector3 WorldOf(in GridPos p) // y 軸翻轉：格子 y 向下，世界 y 向上
-            => new Vector3(p.X - 6f, 6f - p.Y, 0);
+        private void BuildCamera()
+        {
+            // 清掉預設場景殘留的攝影機與燈（Untitled 場景自帶一組，會跟自建的打架）
+            foreach (var c in FindObjectsByType<Camera>(FindObjectsSortMode.None)) Destroy(c.gameObject);
+            foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) Destroy(l.gameObject);
+
+            var camGo = new GameObject("Main Camera");
+            var cam = camGo.AddComponent<Camera>();
+            cam.orthographic = true;
+            cam.orthographicSize = 7.2f;
+            cam.backgroundColor = new Color(0.07f, 0.06f, 0.09f);
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            camGo.transform.position = new Vector3(0, 0, -10);
+            camGo.tag = "MainCamera";
+        }
+
+        private Vector3 WorldOf(in GridPos p) => new Vector3(p.X - 6f, 6f - p.Y, 0);
 
         private void BuildBoard()
         {
@@ -116,9 +125,11 @@ namespace Tower.Game
             for (int x = 0; x < FloorGrid.Size; x++)
             {
                 var pos = new GridPos(x, y);
-                var terrain = _floor.Grid[pos];
-                MakeSprite(terrain == TerrainType.Wall ? "tile_wall" : "tile_floor",
-                    WorldOf(pos), 0, $"t_{x}_{y}");
+                bool isWall = _floor.Grid[pos] == TerrainType.Wall;
+                var go = MakeSprite(isWall ? "tile_wall" : "tile_floor", WorldOf(pos), 0, $"t_{x}_{y}");
+                go.GetComponent<SpriteRenderer>().color = isWall
+                    ? new Color(0.42f, 0.42f, 0.52f)   // 牆壓暗（遊測回饋：牆地難分）
+                    : new Color(1f, 0.98f, 0.92f);
             }
 
             foreach (var e in _floor.Entities)
@@ -135,11 +146,18 @@ namespace Tower.Game
                         _ => "mon_skel_gray",
                     },
                     EntityType.Item => e.Ref == "key_yellow" ? "item_key_y" : "item_potion_s",
-                    _ => null, // spawn 無視覺
+                    _ => null,
                 };
                 if (sprite == null) continue;
                 var go = MakeSprite(sprite, WorldOf(e.Pos), 10, e.Eid);
                 _entityViews[e.Eid] = go;
+
+                if (e.Type == EntityType.Monster)
+                {
+                    // 傷害預覽：常駐、掛在怪物身上（怪物消失標籤跟著走）
+                    var label = MakeText(go.transform, new Vector3(0, 0.62f, 0), 0.42f, TextAnchor.LowerCenter, 60);
+                    _previewLabels[e.Eid] = label;
+                }
             }
         }
 
@@ -147,6 +165,72 @@ namespace Tower.Game
         {
             _hero = MakeSprite("hero_down", WorldOf(_state.Position), 20, "hero");
             _heroRenderer = _hero.GetComponent<SpriteRenderer>();
+        }
+
+        private void BuildHud()
+        {
+            // 數值列：壓在頂排牆上（y = +6）——棋盤看得見它就看得見
+            MakeBackplate(new Vector3(0, 6f, 0), 13f, 1.04f, 0.78f, 90, "hud_bg");
+            _hudText = MakeText(null, new Vector3(0, 6f, 0), 0.5f, TextAnchor.MiddleCenter, 100);
+
+            // 提示：棋盤中上（有訊息才出現）
+            _toastText = MakeText(null, new Vector3(0, 2.5f, 0), 0.55f, TextAnchor.MiddleCenter, 100);
+            _toastText.color = Color.white;
+            _toastText.gameObject.SetActive(false);
+
+            // 對話框：壓在底排牆上（y = −6），兩行
+            _dialogueBox = new GameObject("dialogue");
+            MakeBackplate(new Vector3(0, -5.95f, 0), 13f, 1.5f, 0.86f, 90, "dlg_bg").transform.SetParent(_dialogueBox.transform);
+            _dialogueSpeaker = MakeText(_dialogueBox.transform, new Vector3(-6.1f, -5.62f, 0), 0.42f, TextAnchor.MiddleLeft, 100);
+            _dialogueSpeaker.color = new Color(1f, 0.85f, 0.4f);
+            _dialogueText = MakeText(_dialogueBox.transform, new Vector3(-6.1f, -6.18f, 0), 0.46f, TextAnchor.MiddleLeft, 100);
+            _dialogueBox.SetActive(false);
+        }
+
+        private GameObject MakeBackplate(Vector3 pos, float w, float h, float alpha, int order, string name)
+        {
+            var go = new GameObject(name);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = SolidSprite();
+            sr.color = new Color(0.02f, 0.02f, 0.05f, alpha);
+            sr.sortingOrder = order;
+            go.transform.position = pos;
+            go.transform.localScale = new Vector3(w, h, 1);
+            return go;
+        }
+
+        private Sprite _solid;
+        private Sprite SolidSprite()
+        {
+            if (_solid != null) return _solid;
+            var tex = new Texture2D(4, 4, TextureFormat.RGBA32, false);
+            var px = new Color32[16];
+            for (int i = 0; i < 16; i++) px[i] = new Color32(255, 255, 255, 255);
+            tex.SetPixels32(px);
+            tex.Apply();
+            _solid = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4f);
+            return _solid;
+        }
+
+        private TextMesh MakeText(Transform parent, Vector3 localPos, float unitHeight, TextAnchor anchor, int order)
+        {
+            var go = new GameObject("text");
+            if (parent != null) go.transform.SetParent(parent);
+            go.transform.localPosition = localPos;
+            var tm = go.AddComponent<TextMesh>();
+            tm.fontSize = 64;
+            tm.characterSize = unitHeight * 10f / 64f;
+            tm.anchor = anchor;
+            tm.alignment = TextAlignment.Center;
+            tm.color = Color.white;
+            if (_font != null)
+            {
+                tm.font = _font;
+                go.GetComponent<MeshRenderer>().material = _font.material;
+            }
+            var mr = go.GetComponent<MeshRenderer>();
+            mr.sortingOrder = order;
+            return tm;
         }
 
         private GameObject MakeSprite(string spriteName, Vector3 pos, int order, string goName)
@@ -166,7 +250,6 @@ namespace Tower.Game
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             tex.LoadImage(File.ReadAllBytes(path));
             tex.filterMode = FilterMode.Bilinear;
-            // PPU = 較長邊 → 每張 sprite 恰好一格寬
             float ppu = Mathf.Max(tex.width, tex.height);
             s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), ppu);
             _sprites[name] = s;
@@ -204,7 +287,7 @@ namespace Tower.Game
         {
             string path = Path.Combine(Application.streamingAssetsPath, "data", file);
             var lines = File.ReadAllLines(path);
-            for (int i = 1; i < lines.Length; i++) // 跳過表頭
+            for (int i = 1; i < lines.Length; i++)
                 if (!string.IsNullOrWhiteSpace(lines[i]))
                     yield return lines[i].Trim();
         }
@@ -215,6 +298,9 @@ namespace Tower.Game
 
         private void Update()
         {
+            if (_toastText.gameObject.activeSelf && Time.time >= _toastUntil)
+                _toastText.gameObject.SetActive(false);
+
             if (_activeDialogue != null)
             {
                 if (Input.anyKeyDown) AdvanceDialogue();
@@ -255,39 +341,33 @@ namespace Tower.Game
                     case EntityType.Door:
                         if (!HasKey(entity.DoorTier)) { Toast(KeyMsg(entity.DoorTier)); return; }
                         Apply(new OpenDoorCommand(entity.Eid, entity.DoorTier));
-                        Object.Destroy(_entityViews[entity.Eid]);
-                        return; // D7：即撞即開；開門這步不進格
+                        Destroy(_entityViews[entity.Eid]);
+                        return;
 
                     case EntityType.Monster:
                         var monster = _monsters[entity.Ref];
                         var outcome = CombatResolver.ResolveCollision(_state.CombatStats, monster);
-                        if (!outcome.Winnable) { Toast(S("msg_cannot_win")); return; }       // D13
-                        if (outcome.ExpectedLoss >= _state.Hp) { Toast(S("msg_lethal_blocked")); return; } // D13
+                        if (!outcome.Winnable) { Toast(S("msg_cannot_win")); return; }
+                        if (outcome.ExpectedLoss >= _state.Hp) { Toast(S("msg_lethal_blocked")); return; }
                         Apply(new CollisionBattleCommand(entity.Eid, outcome, monster));
-                        Object.Destroy(_entityViews[entity.Eid]);
-                        return; // 勝利後不自動進格（經典魔塔節奏）
+                        Destroy(_entityViews[entity.Eid]); // 標籤是子物件，一起銷毀
+                        return;
                 }
             }
 
-            // 純移動
             Apply(new MoveCommand(from, to));
             _hero.transform.position = WorldOf(to);
 
-            // 踩上道具即撿
             var item = _floor.EntityAt(to);
             if (item != null && item.Type == EntityType.Item && !_state.ConsumedEids.Contains(item.Eid))
             {
                 Apply(new PickupItemCommand(item.Eid, _items[item.Ref]));
-                Object.Destroy(_entityViews[item.Eid]);
+                Destroy(_entityViews[item.Eid]);
             }
 
-            // 踩上樓梯
             var stairs = _floor.EntityAt(to);
             if (stairs != null && stairs.Type == EntityType.Stairs)
-            {
-                _reachedStairs = true;
                 Toast(S("msg_demo_end"), 5f);
-            }
         }
 
         private void SetFacing(string facing)
@@ -298,7 +378,6 @@ namespace Tower.Game
                 "side_l" or "side_r" => GetSprite("hero_side"),
                 _ => GetSprite("hero_down"),
             };
-            // hero_side 素材面向左；向右走鏡像
             _heroRenderer.flipX = facing == "side_r";
         }
 
@@ -306,6 +385,8 @@ namespace Tower.Game
         {
             cmd.Apply(_state);
             _commands.Add(cmd);
+            RefreshHud();
+            RefreshPreviews(); // 屬性/血量變了，所有預覽重算
         }
 
         private bool HasKey(KeyTier t) => t switch
@@ -324,20 +405,68 @@ namespace Tower.Game
 
         private void Toast(string msg, float seconds = 1.6f)
         {
-            _toast = msg;
+            _toastText.text = msg;
+            _toastText.gameObject.SetActive(true);
             _toastUntil = Time.time + seconds;
         }
+
+        // ---- UI 更新 ----
+
+        private void RefreshHud()
+        {
+            _hudText.text =
+                $"{S("lbl_hp")} {_state.Hp}　{S("lbl_atk")} {_state.Atk}　{S("lbl_def")} {_state.Def}　" +
+                $"{S("lbl_gold")} {_state.Gold}　{S("lbl_exp")} {_state.Exp}　" +
+                $"{S("item_key_label")}×{_state.KeysYellow}";
+        }
+
+        private void RefreshPreviews()
+        {
+            foreach (var e in _floor.Entities)
+            {
+                if (e.Type != EntityType.Monster) continue;
+                if (!_previewLabels.TryGetValue(e.Eid, out var label) || label == null) continue;
+                if (_state.ConsumedEids.Contains(e.Eid)) continue;
+
+                var o = CombatResolver.ResolveCollision(_state.CombatStats, _monsters[e.Ref]);
+                if (!o.Winnable)
+                {
+                    label.text = "✖";
+                    label.color = new Color(1f, 0.3f, 0.25f);
+                }
+                else if (o.ExpectedLoss >= _state.Hp)
+                {
+                    label.text = $"-{o.ExpectedLoss}";
+                    label.color = new Color(1f, 0.3f, 0.25f); // D13 致死＝紅字，格子視同牆
+                }
+                else
+                {
+                    label.text = $"-{o.ExpectedLoss}";
+                    label.color = new Color(1f, 0.95f, 0.5f);
+                }
+            }
+        }
+
+        // ---- 對話 ----
 
         private void StartDialogue(string id)
         {
             if (!_dialogues.TryGetValue(id, out var seq)) return;
             _activeDialogue = seq;
-            _dialogueIndex = _dialogueSeenAll.Contains(id) ? seq.Count - 1 : 0; // 播畢後再撞 = 重播最後一句
+            _dialogueIndex = _dialogueSeenAll.Contains(id) ? seq.Count - 1 : 0;
             _dialogueCurrentId = id;
+            ShowDialogueLine();
         }
 
-        private readonly HashSet<string> _dialogueSeenAll = new HashSet<string>();
-        private string _dialogueCurrentId;
+        private void ShowDialogueLine()
+        {
+            var (speaker, text) = _activeDialogue[_dialogueIndex];
+            _dialogueSpeaker.text = $"【{speaker}】";
+            _dialogueText.text = text;
+            _dialogueSpeaker.alignment = TextAlignment.Left;
+            _dialogueText.alignment = TextAlignment.Left;
+            _dialogueBox.SetActive(true);
+        }
 
         private void AdvanceDialogue()
         {
@@ -346,69 +475,10 @@ namespace Tower.Game
             {
                 _dialogueSeenAll.Add(_dialogueCurrentId);
                 _activeDialogue = null;
+                _dialogueBox.SetActive(false);
+                return;
             }
-        }
-
-        // ---- HUD（工程預覽用 IMGUI；正式 UI 是後續步驟） ----
-
-        private void OnGUI()
-        {
-            if (_font != null) GUI.skin.font = _font;
-            int fs = Mathf.Max(14, Screen.height / 42);
-            GUI.skin.label.fontSize = fs;
-
-            // 頂部數值列（半透明底板保對比）
-            string hud = $"{S("lbl_hp")} {_state.Hp}   {S("lbl_atk")} {_state.Atk}   {S("lbl_def")} {_state.Def}   " +
-                         $"{S("lbl_gold")} {_state.Gold}   {S("lbl_exp")} {_state.Exp}   " +
-                         $"{S("item_key_label")}×{_state.KeysYellow}";
-            var hudStyle = new GUIStyle(GUI.skin.label) { fontSize = fs, fontStyle = FontStyle.Bold };
-            hudStyle.normal.textColor = Color.white;
-            GUI.color = new Color(0, 0, 0, 0.55f);
-            GUI.DrawTexture(new Rect(0, 0, Screen.width, fs * 2.2f), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-            GUI.Label(new Rect(12, fs / 2f, Screen.width - 24, fs * 2), hud, hudStyle);
-
-            // 怪物傷害預覽（常駐——這是核心 UI，不是 QoL）
-            var cam = Camera.main;
-            foreach (var e in _floor.Entities)
-            {
-                if (e.Type != EntityType.Monster || _state.ConsumedEids.Contains(e.Eid)) continue;
-                var m = _monsters[e.Ref];
-                var o = CombatResolver.ResolveCollision(_state.CombatStats, m);
-                string label = !o.Winnable ? "✖" : o.ExpectedLoss >= _state.Hp ? "☠" : $"-{o.ExpectedLoss}";
-                var sp = cam.WorldToScreenPoint(WorldOf(e.Pos) + new Vector3(0, 0.55f, 0));
-                var style = new GUIStyle(GUI.skin.label)
-                {
-                    alignment = TextAnchor.MiddleCenter,
-                    fontSize = fs,
-                    fontStyle = FontStyle.Bold,
-                };
-                style.normal.textColor = (!o.Winnable || o.ExpectedLoss >= _state.Hp)
-                    ? new Color(1f, 0.3f, 0.25f) : new Color(1f, 0.95f, 0.5f);
-                GUI.Label(new Rect(sp.x - 60, Screen.height - sp.y - fs * 1.2f, 120, fs * 1.5f), label, style);
-            }
-
-            // 提示訊息
-            if (_toast != null && Time.time < _toastUntil)
-            {
-                var style = new GUIStyle(GUI.skin.label)
-                {
-                    alignment = TextAnchor.MiddleCenter, fontSize = fs + 6, fontStyle = FontStyle.Bold,
-                };
-                style.normal.textColor = Color.white;
-                GUI.Label(new Rect(0, Screen.height * 0.28f, Screen.width, fs * 3), _toast, style);
-            }
-
-            // 對話框
-            if (_activeDialogue != null)
-            {
-                var (speaker, text) = _activeDialogue[_dialogueIndex];
-                float h = fs * 5f;
-                var rect = new Rect(Screen.width * 0.08f, Screen.height - h - 24, Screen.width * 0.84f, h);
-                GUI.Box(rect, "");
-                GUI.Label(new Rect(rect.x + 16, rect.y + 8, rect.width - 32, fs * 1.6f), $"【{speaker}】");
-                GUI.Label(new Rect(rect.x + 16, rect.y + 8 + fs * 1.7f, rect.width - 32, fs * 3f), text);
-            }
+            ShowDialogueLine();
         }
     }
 }

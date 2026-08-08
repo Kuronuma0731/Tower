@@ -136,7 +136,7 @@ pwsh tools/center-sprites.ps1 art/source/monsters art/sprites/monsters
 
 | 類別 | 進度 |
 |---|---|
-| 怪物 15 張 | ✅ 已入庫並置中。**但主體僅約 250px（佔畫布 21–29%）**——一般怪可用，`boss_gate_01` / `boss_warden_10` 建議全幅重生（首次重生失敗：頭被裁掉，退件） |
+| 怪物 15 張 | 🔶 13/15。**2026-08-08 遊測揪出 zip 內檔名與內容大規模錯配（10/15 張）**，已按實際內容全面改名修正。盤點後缺口：`mon_ghost_pale`（幽魂）與 `mon_mage_void`（虛空法師）**從未生成**（被兩張重複的藍史萊姆/蝠魔頂替，已隔離於 `art/pending-regen/`）。另 `mon_skel_soldier`、`mon_skel_gray` 等數張頂部有燒入殘字，83px 下不明顯，後續批次重生。主體僅約 250px 的舊帳與守關怪全幅重生照舊 |
 | 道具 8 張 | ✅ 已入庫並置中（主體約 170–250px，道具無推近需求，夠用） |
 | 地形結構 9 張 | ✅ 已入庫。`tile_floor` / `tile_wall` 滿版且可無縫拼接，未經置中直接使用；其餘 7 張已置中 |
 | 互動與人物 6 張 | ✅ 全部入庫。`hero_down`/`hero_up`/`npc_guard_old` 走白底交付 + `tools/dewhite.ps1` 本地去背（邊界泛洪，主體內部的白不受影響）——**透明背景問題多時，白底交付是更穩的路徑** |

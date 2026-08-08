@@ -87,7 +87,9 @@ namespace Tower.Game
             if (_boardRoot != null) Destroy(_boardRoot);
             _entityViews.Clear();
             _previewLabels.Clear();
+            _idleAnims.Clear();
             _commands.Clear();
+            _busy = false;
             _activeDialogue = null;
             if (_dialogueBox != null) _dialogueBox.SetActive(false);
             if (_receipt != null) _receipt.SetActive(false);
@@ -178,19 +180,36 @@ namespace Tower.Game
                     // 傷害預覽：常駐、掛在怪物身上（怪物消失標籤跟著走）
                     var label = MakeText(go.transform, new Vector3(0, 0.62f, 0), 0.42f, TextAnchor.LowerCenter, 60);
                     _previewLabels[e.Eid] = label;
+                    // 待機動畫：每隻起始相位錯開，整個棋盤才不會像節拍器一起跳
+                    _idleAnims.Add(new IdleAnim
+                    {
+                        Renderer = go.GetComponent<SpriteRenderer>(),
+                        MonsterId = e.Ref,
+                        Phase = Random.Range(0f, 1f),
+                    });
                 }
             }
         }
 
         // hero 表格列序（RPG Maker 慣例）：0 下 / 1 左 / 2 右 / 3 上
         private int _heroDir;
-        private int _heroFrame;
+        private int _heroStep;   // 走了幾步——決定行走幀序的位置
+
+        private sealed class IdleAnim
+        {
+            public SpriteRenderer Renderer;
+            public string MonsterId;
+            public float Phase;
+        }
+
+        private readonly List<IdleAnim> _idleAnims = new List<IdleAnim>();
+        private const float IdleFrameSeconds = 0.42f;
 
         private void BuildHero()
         {
             _heroDir = SpriteMap.HeroDirDown;
-            _heroFrame = 0;
-            _hero = MakeSprite(SpriteMap.Hero(_heroDir, _heroFrame), WorldOf(_state.Position), 20, "hero");
+            _heroStep = 0;
+            _hero = MakeSprite(SpriteMap.Hero(_heroDir, SpriteMap.WalkCycle[0]), WorldOf(_state.Position), 20, "hero");
             _heroRenderer = _hero.GetComponent<SpriteRenderer>();
         }
 
@@ -271,7 +290,7 @@ namespace Tower.Game
         private void ShowReceipt(MonsterDefinition m, in CollisionOutcome outcome)
         {
             _receiptTitle.text = $"{m.NameZh}　　{S("lbl_vs")}　　{S("lbl_hero")}";
-            _receiptIcon.sprite = GetSprite(SpriteMap.Monster[m.Id]);
+            _receiptIcon.sprite = GetSprite(SpriteMap.MonsterFrame(m.Id, 0));
             _receiptLeft.text =
                 $"{S("lbl_hp")}：{m.Hp}\n{S("lbl_atk")}：{m.Atk}\n{S("lbl_def")}：{m.Def}";
             _receiptRight.text =
@@ -486,10 +505,12 @@ namespace Tower.Game
 
         private void Update()
         {
+            TickIdleAnimations();
+
             if (_toastText.gameObject.activeSelf && Time.time >= _toastUntil)
                 _toastText.gameObject.SetActive(false);
 
-            if (_busy) return; // 戰鬥演出中
+            if (_busy) return; // 戰鬥演出或走路中
 
             // 戰報開著：任意鍵或逾時關閉，期間凍結移動
             if (_receipt != null && _receipt.activeSelf)
@@ -521,13 +542,28 @@ namespace Tower.Game
             }
             else if (Time.time >= _nextRepeatAt)
             {
+                // 重複間隔略短於 tween（0.10s），下一步在上一步剛落定時就接上 → 連續行走
                 TryStep(delta, facing);
-                _nextRepeatAt = Time.time + 0.12f;
+                _nextRepeatAt = Time.time + 0.02f;
             }
         }
 
         private (int dx, int dy)? _heldDelta;
         private float _nextRepeatAt;
+
+        /// <summary>怪物待機動畫。相位錯開，整個棋盤才不會像節拍器一起跳。</summary>
+        private void TickIdleAnimations()
+        {
+            for (int i = _idleAnims.Count - 1; i >= 0; i--)
+            {
+                var a = _idleAnims[i];
+                if (a.Renderer == null) { _idleAnims.RemoveAt(i); continue; }
+                int step = Mathf.FloorToInt(Time.time / IdleFrameSeconds + a.Phase * SpriteMap.WalkCycle.Length);
+                int frame = SpriteMap.WalkCycle[step % SpriteMap.WalkCycle.Length];
+                var s = GetSprite(SpriteMap.MonsterFrame(a.MonsterId, frame));
+                if (s != null && a.Renderer.sprite != s) a.Renderer.sprite = s;
+            }
+        }
 
         private ((int dx, int dy) delta, string facing)? ReadHeldDirection()
         {
@@ -573,24 +609,31 @@ namespace Tower.Game
             }
 
             Apply(new MoveCommand(from, to));
-            _hero.transform.position = WorldOf(to);
+            StartCoroutine(WalkStep(from, to));
+        }
 
-            var item = _floor.EntityAt(to);
-            if (item != null && item.Type == EntityType.Item && !_state.ConsumedEids.Contains(item.Eid))
+        /// <summary>走到格子上之後：撿道具、踩樓梯。</summary>
+        private void AfterArrive(GridPos to)
+        {
+            var here = _floor.EntityAt(to);
+            if (here == null) return;
+
+            if (here.Type == EntityType.Item && !_state.ConsumedEids.Contains(here.Eid))
             {
-                Apply(new PickupItemCommand(item.Eid, _items[item.Ref]));
-                Destroy(_entityViews[item.Eid]);
+                Apply(new PickupItemCommand(here.Eid, _items[here.Ref]));
+                Destroy(_entityViews[here.Eid]);
             }
-
-            var stairs = _floor.EntityAt(to);
-            if (stairs != null && stairs.Type == EntityType.Stairs)
+            else if (here.Type == EntityType.Stairs)
+            {
                 Toast(S("msg_demo_end"), 5f);
+            }
         }
 
         /// <summary>
         /// 轉向並推進行走幀（D14 素材自帶 4 方向 × 4 幀）。
         /// 走路幀序採 RPG Maker 慣例的 0-1-2-3 循環；轉向時歸零，讓每次轉身有明確起點。
         /// </summary>
+        /// <summary>只轉向、不推進走路幀（撞牆／撞門／看 NPC 時用）。</summary>
         private void SetFacing(string facing)
         {
             int dir = facing switch
@@ -600,10 +643,48 @@ namespace Tower.Game
                 "side_r" => SpriteMap.HeroDirRight,
                 _ => SpriteMap.HeroDirDown,
             };
-            if (dir != _heroDir) { _heroDir = dir; _heroFrame = 0; }
-            else { _heroFrame = (_heroFrame + 1) % SpriteMap.HeroFrames; }
-            _heroRenderer.sprite = GetSprite(SpriteMap.Hero(_heroDir, _heroFrame));
+            if (dir != _heroDir) { _heroDir = dir; _heroStep = 0; }
+            ApplyHeroSprite();
+        }
+
+        private void ApplyHeroSprite()
+        {
+            int frame = SpriteMap.WalkCycle[_heroStep % SpriteMap.WalkCycle.Length];
+            _heroRenderer.sprite = GetSprite(SpriteMap.Hero(_heroDir, frame));
             _heroRenderer.flipX = false; // 素材四方向齊備，不需鏡像
+        }
+
+        /// <summary>
+        /// 走一格：位置在 0.1 秒內滑過去，中途換一次走路幀。
+        /// 連走時每步緊接下一步，看起來就是連續行走（D9 一步一格的邏輯完全不變）。
+        /// </summary>
+        private System.Collections.IEnumerator WalkStep(GridPos from, GridPos to)
+        {
+            _busy = true;
+            var a = WorldOf(from);
+            var b = WorldOf(to);
+            _heroStep++;
+            ApplyHeroSprite();
+
+            const float dur = 0.10f;
+            float t = 0f;
+            bool midSwapped = false;
+            while (t < dur)
+            {
+                t += Time.deltaTime;
+                _hero.transform.position = Vector3.Lerp(a, b, Mathf.Clamp01(t / dur));
+                if (!midSwapped && t >= dur * 0.5f)
+                {
+                    midSwapped = true;
+                    _heroStep++;          // 半途再換一幀，腳步才有節奏
+                    ApplyHeroSprite();
+                }
+                yield return null;
+            }
+            _hero.transform.position = b;
+            _busy = false;
+
+            AfterArrive(to);
         }
 
         private void Apply(IGameCommand cmd)

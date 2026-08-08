@@ -67,6 +67,14 @@ namespace Tower.Game
         /// <summary>主角行走圖：4 方向 × 4 幀（RPG Maker 列序：0 下 / 1 左 / 2 右 / 3 上）。</summary>
         public static string Hero(int dirRow, int frame) => $"hero_d{dirRow}_f{frame}";
 
+        /// <summary>怪物待機動畫幀（每隻 4 幀）。frame 0 亦作為戰報圖示與靜態用。</summary>
+        public static string MonsterFrame(string monsterId, int frame)
+            => Monster.TryGetValue(monsterId, out var b) ? $"{b}_f{frame}" : null;
+
+        public const int MonsterFrames = 4;
+        /// <summary>行走幀序：0-1-2-1 的來回擺動比 0-1-2-3 更自然（RPG Maker 慣例）。</summary>
+        public static readonly int[] WalkCycle = { 0, 1, 2, 1 };
+
         public const int HeroDirDown = 0;
         public const int HeroDirLeft = 1;
         public const int HeroDirRight = 2;

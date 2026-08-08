@@ -12,7 +12,8 @@ description: 稽核 Tower 設計文件的一致性——找矛盾、缺口、過
 2. `docs/architecture.md`
 3. `docs/mechanics.md`
 4. `CLAUDE.md` 與 `.claude/commands/grill-tower.md`（下游摘要，最容易過期）
-5. `git log --oneline -5` 與 `git diff HEAD~1 --stat`——聚焦最近改了什麼，改動處是漏洞高發區
+5. `Assets/_Project/Core/**` 與 `data/*.csv`——**程式與資料是決策的最終下游**：POCO 形狀、特性語義、公式分支要跟文件對；CSV 內容要跟 schema 對
+6. `git log --oneline -5` 與 `git diff HEAD~1 --stat`——聚焦最近改了什麼，改動處是漏洞高發區
 
 若 repo 中新增了其他設計文件，一併納入。
 

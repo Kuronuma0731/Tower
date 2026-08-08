@@ -142,26 +142,15 @@ ui-strings.csv: id, text_zh
 
 按鈕、系統訊息、標籤、付費牆文案、開場三句——**所有不屬於對話的玩家可見文字**。`{n}`、`{item}` 是執行期插值佔位符。首發 40 餘條已在 `data/ui-strings.csv`。
 
-## 6. Core POCO（欄位對應，實作時的形狀）
+## 6. Core POCO（實作為準）
 
-```csharp
-record MonsterDefinition(string Id, int Atk, int Def, int Hp,
-                         TraitSet Traits, int GoldDrop, int ExpDrop, bool IsGuardian);
+**真相在程式碼**：`Assets/_Project/Core/` 已實作，本節只做地圖，欄位以原始碼為準。
 
-[Flags] enum TraitSet { None=0, FirstStrike=1, MultiHit=2, Pierce=4, Lifesteal=8 }
-
-record CollisionOutcome(bool Winnable, int ExpectedLoss, int Rounds);
-// Winnable=false ⇔「無法戰勝」——打不動或吸血淨削減 ≤ 0，UI 不顯示數字
-
-class GameState {
-  PlayerStats Player;            // atk, def, hp
-  int Gold, Exp;
-  int KeysYellow, KeysBlue, KeysRed, Hourglasses;
-  FloorId CurrentFloor; GridPos Position;
-  HashSet<string> ConsumedEids;  // 已擊殺/已拾取/已開門/已觸發（eid）
-  Dictionary<string,int> PurchaseCounts;  // 商店遞增價的計數（祭壇曲線若定遞增，同款欄位）
-}
-```
+- `Combat/MonsterDefinition.cs` — sealed class：Id、Atk、Def、Hp、Traits、GoldDrop、ExpDrop、IsGuardian
+- `Combat/TraitSet.cs` — `[Flags]`：None / FirstStrike / MultiHit / Pierce / Lifesteal
+- `Combat/CollisionOutcome.cs` — readonly struct：Winnable、ExpectedLoss、Rounds。`Winnable == false` ⇔「無法戰勝」（打不動或吸血淨削減 ≤ 0），UI 不顯示數字（D13：該格視同牆壁）
+- `Commands/GameState.cs` — 攤平的 Atk/Def/Hp/Gold/Exp/三色鑰匙/Hourglasses、`string CurrentFloor`、`GridPos Position`、`ConsumedEids`（封閉經濟帳本）、`PurchaseCounts`（鍵 `"shop_id:item_id"` / `"altar_id:stat"`）；`CombatStats` 唯讀視圖供結算、`Clone()` 為快照原語
+- `Grid/FloorGrid.cs` — 字元列解析器（本文件 §3 的 tiles 格式）＋單向格通行語義
 
 ---
 

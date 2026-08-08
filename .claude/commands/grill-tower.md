@@ -47,12 +47,13 @@ Core gameplay:
 - Floor teleportation
 - Puzzle solving
 
-Locked decisions D1–D12 (see `CONTEXT.md` for rationale and accepted costs). The ones most often worth stress-testing at their edges:
+Locked decisions D1–D13 (see `CONTEXT.md` for rationale and accepted costs). The ones most often worth stress-testing at their edges:
 
 - **D1 Pure collision combat** — Bosses are collision battles too; drama must come from stats + trait combos.
-- **D7 Undo costs a consumable; misclicks have NO free remedy** — the riskiest UX decision in the project.
+- **D7 Undo costs a consumable; misclicks have NO free remedy anywhere, menus included** — the riskiest UX decision in the project.
 - **D11 Fully closed economy** — monsters never respawn; the reachability solver is a lifeline, not a tool.
 - **D12 Solo dev + AI** — every scope claim must survive this denominator.
+- **D13 Lethal collisions are walls** — the game has no death system; lethal tiles need unmistakable visual language.
 
 ---
 
@@ -90,7 +91,9 @@ Do trait combinations stay calculable in the player's head, or does the preview 
 
 Will battle feedback (number pops, shake) stay satisfying after 500 battles?
 
-What happens when the preview shows lethal damage — is "you simply can't press into it" enough of a fail state?
+D13 makes lethal tiles walls — is the visual language strong enough that players never mistake "can't enter" for a bug?
+
+When every path off a floor reads as a wall, does the player reliably discover retreat (free) and undo (paid), or do they just quit?
 
 Is the no-free-undo-for-misclicks stance (D7) survivable in store reviews?
 

@@ -2,7 +2,8 @@
 Thumbs.db
 Desktop.ini
 
-# Unity (future)
+# Unity
+# 注意：*.meta 必須進版控——資源引用全靠它，絕對不要加進這份清單
 Library/
 Temp/
 Obj/

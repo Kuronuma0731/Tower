@@ -41,6 +41,7 @@ namespace Tower.Game
         private GameObject _hero;
         private SpriteRenderer _heroRenderer;
         private Camera _cam;
+        private AudioBank _audio;
         private bool _busy;   // 戰鬥演出中：凍結輸入
         private Font _font;
 
@@ -78,6 +79,7 @@ namespace Tower.Game
 
             BuildCamera();
             BuildHud();
+            _audio = AudioBank.Create(transform);
             LoadFloor("F01");
         }
 
@@ -99,7 +101,7 @@ namespace Tower.Game
             _monsters = gallery ? GalleryFloor.Monsters() : F01.Monsters();
             _items = gallery ? GalleryFloor.Items() : F01.Items();
 
-            _state = new GameState { Atk = 10, Def = 10, Hp = 550 }; // data/balance.csv 鏡像
+            _state = new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv 鏡像（原版初始值）
             _state.CurrentFloor = id;
             _state.Position = gallery ? GalleryFloor.SpawnPos : F01.SpawnPos;
             if (gallery) { _state.KeysYellow = 1; _state.KeysBlue = 1; _state.KeysRed = 1; } // 陳列室開門用
@@ -321,6 +323,8 @@ namespace Tower.Game
             int bumps = Mathf.Clamp(1 + outcome.Rounds / 12, 1, 3);
             for (int i = 0; i < bumps; i++)
             {
+                // 守關怪用暴擊音，一般怪用平 A——聽覺上就分得出這場的份量
+                _audio.Play(monster.IsGuardian ? AudioBank.Crit : AudioBank.Attack);
                 // 衝撞：朝怪物撞出 35% 格再回來
                 yield return Lerp(0.07f, t => _hero.transform.position =
                     Vector3.Lerp(heroHome, Vector3.Lerp(heroHome, target, 0.35f), t));
@@ -348,6 +352,7 @@ namespace Tower.Game
 
             if (view != null) Destroy(view); // 預覽標籤是子物件，一起走
             FloatDamage(entity.Pos, outcome.ExpectedLoss);
+            if (monster.GoldDrop > 0) _audio.Play(AudioBank.Gold, 0.7f);
             ShowReceipt(monster, outcome);
             _busy = false;
         }
@@ -588,11 +593,18 @@ namespace Tower.Game
                 switch (entity.Type)
                 {
                     case EntityType.Npc:
+                        _audio.Play(AudioBank.Talk);
                         StartDialogue(entity.DialogueId);
                         return;
 
                     case EntityType.Door:
-                        if (!HasKey(entity.DoorTier)) { Toast(KeyMsg(entity.DoorTier)); return; }
+                        if (!HasKey(entity.DoorTier))
+                        {
+                            _audio.Play(AudioBank.Blocked);
+                            Toast(KeyMsg(entity.DoorTier));
+                            return;
+                        }
+                        _audio.Play(AudioBank.Door);
                         Apply(new OpenDoorCommand(entity.Eid, entity.DoorTier));
                         Destroy(_entityViews[entity.Eid]);
                         return;
@@ -600,8 +612,9 @@ namespace Tower.Game
                     case EntityType.Monster:
                         var monster = _monsters[entity.Ref];
                         var outcome = CombatResolver.ResolveCollision(_state.CombatStats, monster);
-                        if (!outcome.Winnable) { Toast(S("msg_cannot_win")); return; }
-                        if (outcome.ExpectedLoss >= _state.Hp) { Toast(S("msg_lethal_blocked")); return; }
+                        // D13：打不贏或會死的格子等同牆壁——用同一個「擋住」音效，語意一致
+                        if (!outcome.Winnable) { _audio.Play(AudioBank.Blocked); Toast(S("msg_cannot_win")); return; }
+                        if (outcome.ExpectedLoss >= _state.Hp) { _audio.Play(AudioBank.Blocked); Toast(S("msg_lethal_blocked")); return; }
                         Apply(new CollisionBattleCommand(entity.Eid, outcome, monster));
                         StartCoroutine(BattleSequence(entity, monster, outcome));
                         return;
@@ -620,11 +633,13 @@ namespace Tower.Game
 
             if (here.Type == EntityType.Item && !_state.ConsumedEids.Contains(here.Eid))
             {
+                _audio.Play(AudioBank.Item);
                 Apply(new PickupItemCommand(here.Eid, _items[here.Ref]));
                 Destroy(_entityViews[here.Eid]);
             }
             else if (here.Type == EntityType.Stairs)
             {
+                _audio.Play(AudioBank.Stairs);
                 Toast(S("msg_demo_end"), 5f);
             }
         }

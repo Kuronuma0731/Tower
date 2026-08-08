@@ -19,6 +19,7 @@ namespace Tower.Game
             ["slime_green"] = "mon_slime_g",
             ["slime_red"] = "mon_slime_r",
             ["slime_blue"] = "mon_slime_b",
+            ["slime_black"] = "mon_slime_b", // 紫色那列充當黑史萊姆
             ["bat_cave"] = "mon_bat_cave",
             ["rat_giant"] = "mon_rat_giant",
             ["bandit"] = "mon_bandit",

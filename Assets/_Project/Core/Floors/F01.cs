@@ -65,27 +65,35 @@ namespace Tower.Core.Floors
                 new FloorEntity("F01_m02", EntityType.Monster, new GridPos(4, 3), @ref: "slime_green"),
                 // 左口袋：好交易（虧 24 血換 150 血瓶）
                 new FloorEntity("F01_m03", EntityType.Monster, new GridPos(1, 10), @ref: "bat_cave"),
-                // 右口袋：現在打不贏——預覽會顯示紅 ✖，開這扇門等於白費一把鑰匙。
-                // 這是刻意的第一課：花錢之前先看數字（D13 的視覺語言在此首演）
-                new FloorEntity("F01_m04", EntityType.Monster, new GridPos(11, 10), @ref: "skel_gray"),
+                // 右口袋：預覽顯示紅色致死數字，D13 判定為牆——開這扇門等於白費一把鑰匙。
+                // 這是刻意的第一課：花錢之前先看數字
+                new FloorEntity("F01_m04", EntityType.Monster, new GridPos(11, 10), @ref: "slime_black"),
             };
 
             return new FloorDefinition("F01", FloorGrid.Parse(rows), entities, nameZh: "塔門之下");
         }
 
         /// <summary>1F 怪物數值（鏡像 data/monsters.csv）。</summary>
+        /// <summary>
+        /// 1F 怪物（數值取自原版總表，見 docs/reference-classic-mt.md）。
+        /// 原版格式 `血 攻 防 敏 exp gold`；敏捷是迴避率，我們 D1 禁機率故不採用。
+        /// </summary>
         public static Dictionary<string, MonsterDefinition> Monsters() => new Dictionary<string, MonsterDefinition>
         {
-            ["slime_green"] = new MonsterDefinition("slime_green", 12, 4, 30, TraitSet.None, 2, 3, false, "綠史萊姆"),
-            ["bat_cave"] = new MonsterDefinition("bat_cave", 14, 6, 28, TraitSet.None, 4, 5, false, "洞穴蝙蝠"),
-            ["skel_gray"] = new MonsterDefinition("skel_gray", 15, 11, 35, TraitSet.None, 8, 10, false, "小骷髏"),
+            // 綠史萊姆 40/18/1 exp1 gold1 —— 損 32，最便宜的練習對象
+            ["slime_green"] = new MonsterDefinition("slime_green", 18, 1, 40, TraitSet.None, 1, 1, false, "綠史萊姆"),
+            // 蝙蝠 55/32/2 exp1 gold3 —— 損 132，划算的交易（換 200 血瓶淨賺 68）
+            ["bat_cave"] = new MonsterDefinition("bat_cave", 32, 2, 55, TraitSet.None, 3, 1, false, "蝙蝠"),
+            // 黑史萊姆 80/37/9 exp1 gold5 —— 防 9 只低攻擊 1 點，每輪只削 1 血：
+            // 損 2133 遠超 1000 血 → D13 判定為牆。攻擊力上去後才打得起，回頭殺的鉤子。
+            ["slime_black"] = new MonsterDefinition("slime_black", 37, 9, 80, TraitSet.None, 5, 1, false, "黑史萊姆"),
         };
 
         /// <summary>1F 用到的道具（鏡像 data/items.csv）。</summary>
         public static Dictionary<string, ItemDefinition> Items() => new Dictionary<string, ItemDefinition>
         {
             ["key_yellow"] = new ItemDefinition("key_yellow", ItemCategory.Key, KeyTier.Yellow),
-            ["potion_s"] = new ItemDefinition("potion_s", ItemCategory.Potion, healHp: 150),
+            ["potion_s"] = new ItemDefinition("potion_s", ItemCategory.Potion, healHp: 200), // 原版商人：15 金幣 200 血
         };
     }
 }

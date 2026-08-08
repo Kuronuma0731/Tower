@@ -11,7 +11,7 @@ namespace Tower.Core.Tests
     {
         private static GameState Start() => new GameState
         {
-            Atk = 10, Def = 10, Hp = 550, // data/balance.csv
+            Atk = 10, Def = 10, Hp = 1000, // data/balance.csv（對齊原版初始值）
         };
 
         [Test]
@@ -22,20 +22,24 @@ namespace Tower.Core.Tests
                 .Solve(Start(), F01.SpawnPos, F01.StairsUpPos);
 
             Assert.AreEqual(SolverStatus.Solvable, result.Status);
-            // 最佳路線：開左口袋殺蝙蝠（-24）拿血瓶（+150）→ 550 - 24 + 150 = 676
-            Assert.AreEqual(676, result.BestExitHp);
+            // 最佳路線：開左口袋殺蝙蝠（-132）拿血瓶（+200）→ 1000 - 132 + 200 = 1068
+            Assert.AreEqual(1068, result.BestExitHp);
         }
 
         [Test]
-        public void F01_Skeleton_IsUnwinnableAtStart_ComebackHook()
+        public void F01_BlackSlime_IsLethalAtStart_ComebackHook()
         {
-            var skel = F01.Monsters()["skel_gray"];
-            var outcome = CombatResolver.ResolveCollision(Start().CombatStats, skel);
-            Assert.IsFalse(outcome.Winnable); // 攻 10 vs 防 11 → 無法戰勝（D13 視覺語言首演）
+            var black = F01.Monsters()["slime_black"];
+            var start = Start();
+            var outcome = CombatResolver.ResolveCollision(start.CombatStats, black);
 
-            // 2F 拿到攻擊寶石（+2）後可破——回頭殺成立
-            var withGem = CombatResolver.ResolveCollision(new PlayerStats(12, 10), skel);
-            Assert.IsTrue(withGem.Winnable);
+            // 防 9 只低攻擊 1 點 → 每輪削 1 血 → 損血遠超上限：D13 判定此格為牆
+            Assert.IsTrue(outcome.Winnable);                       // 數學上打得死…
+            Assert.Greater(outcome.ExpectedLoss, start.Hp);        // …但會死，所以進不去
+
+            // 攻擊力上去後才划算——回頭殺成立
+            var stronger = CombatResolver.ResolveCollision(new PlayerStats(20, 10), black);
+            Assert.Less(stronger.ExpectedLoss, start.Hp);
         }
 
         [Test]
@@ -45,8 +49,8 @@ namespace Tower.Core.Tests
             var slime = CombatResolver.ResolveCollision(start, F01.Monsters()["slime_green"]);
             var bat = CombatResolver.ResolveCollision(start, F01.Monsters()["bat_cave"]);
 
-            Assert.AreEqual(8, slime.ExpectedLoss);  // 便宜的練習對象
-            Assert.AreEqual(24, bat.ExpectedLoss);   // 貴三倍——預覽對比有戲
+            Assert.AreEqual(32, slime.ExpectedLoss);   // 最便宜的練習對象（原版數值）
+            Assert.AreEqual(132, bat.ExpectedLoss);    // 貴四倍——預覽對比有戲
             Assert.Less(slime.ExpectedLoss, bat.ExpectedLoss);
         }
 

@@ -2,7 +2,7 @@ id,name_zh,category,key_tier,heal_hp,atk_bonus,def_bonus,undo_steps,sprite,desc_
 key_yellow,黃鑰匙,key,yellow,,,,,item_key_y,最常見的鑰匙。但門，總是比鑰匙多。
 key_blue,藍鑰匙,key,blue,,,,,item_key_b,開啟封鎖整片區域的藍門。用在哪一邊？
 key_red,紅鑰匙,key,red,,,,,item_key_r,全塔屈指可數。留給最值得的那扇門。
-potion_s,小血瓶,potion,,150,,,,item_potion_s,回復 150 生命。撿起即用——生命沒有上限。
+potion_s,小血瓶,potion,,200,,,,item_potion_s,回復 200 生命。撿起即用——生命沒有上限。
 potion_l,大血瓶,potion,,400,,,,item_potion_l,回復 400 生命。塔裡最實在的奢侈品。
 gem_atk,攻擊寶石,gem,,,2,,,item_gem_atk,攻擊永久 +2。
 gem_def,防禦寶石,gem,,,,2,,item_gem_def,防禦永久 +2。

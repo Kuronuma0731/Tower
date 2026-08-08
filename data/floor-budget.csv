@@ -1,2 +1,2 @@
 floor_id,keys_y_in,keys_b_in,keys_r_in,doors_y,doors_b,doors_r,gold_in,exp_in,potion_hp_in,gem_atk_in,gem_def_in,hourglass_in,mandatory_hp_loss,notes
-F01,2,0,0,3,0,0,16,21,300,0,0,0,0,鑰匙比門少一把（教學取捨）；骷髏當下無法戰勝＝「回頭殺」鉤子；主路零強制戰鬥
+F01,2,0,0,3,0,0,10,4,400,0,0,0,0,鑰匙比門少一把（教學取捨）；黑史萊姆當下致死＝D13 牆＝「回頭殺」鉤子；主路零強制戰鬥；數值取自原版總表

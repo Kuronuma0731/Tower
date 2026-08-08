@@ -49,7 +49,7 @@ namespace Tower.Game
 
         private void Start()
         {
-            _font = Font.CreateDynamicFontFromOSFont("Microsoft JhengHei", 16);
+            _font = LoadCjkFont();
 
             LoadStrings();
             LoadDialogues();
@@ -77,6 +77,34 @@ namespace Tower.Game
             cam.clearFlags = CameraClearFlags.SolidColor;
             camGo.transform.position = new Vector3(0, 0, -10);
             camGo.tag = "MainCamera";
+        }
+
+        /// <summary>
+        /// 挑一個系統上真的存在的 CJK 字型——硬要名字會因 OS 語系回報名不同而失敗
+        /// （首次遊測實證：HUD 整條隱形）。正式 UI 必須改內嵌字型資產，不能依賴 OS 字型。
+        /// </summary>
+        private static Font LoadCjkFont()
+        {
+            var installed = Font.GetOSInstalledFontNames();
+            string[] preferred =
+            {
+                "Microsoft JhengHei UI", "Microsoft JhengHei", "微軟正黑體",
+                "Noto Sans TC", "Noto Sans CJK TC", "Microsoft YaHei", "微軟雅黑",
+                "MingLiU", "PMingLiU", "新細明體",
+            };
+            foreach (var want in preferred)
+                foreach (var have in installed)
+                    if (string.Equals(have, want, System.StringComparison.OrdinalIgnoreCase))
+                        return Font.CreateDynamicFontFromOSFont(have, 16);
+
+            string[] fuzzy = { "JhengHei", "正黑", "YaHei", "雅黑", "Noto Sans", "Ming", "明體", "Gothic" };
+            foreach (var pat in fuzzy)
+                foreach (var have in installed)
+                    if (have.IndexOf(pat, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        return Font.CreateDynamicFontFromOSFont(have, 16);
+
+            Debug.LogWarning("[TowerPreview] 找不到 CJK 字型，HUD 中文可能無法顯示");
+            return null;
         }
 
         private Vector3 WorldOf(in GridPos p) // y 軸翻轉：格子 y 向下，世界 y 向上
@@ -329,11 +357,16 @@ namespace Tower.Game
             int fs = Mathf.Max(14, Screen.height / 42);
             GUI.skin.label.fontSize = fs;
 
-            // 頂部數值列
+            // 頂部數值列（半透明底板保對比）
             string hud = $"{S("lbl_hp")} {_state.Hp}   {S("lbl_atk")} {_state.Atk}   {S("lbl_def")} {_state.Def}   " +
                          $"{S("lbl_gold")} {_state.Gold}   {S("lbl_exp")} {_state.Exp}   " +
                          $"{S("item_key_label")}×{_state.KeysYellow}";
-            GUI.Label(new Rect(12, 8, Screen.width - 24, fs * 2), hud);
+            var hudStyle = new GUIStyle(GUI.skin.label) { fontSize = fs, fontStyle = FontStyle.Bold };
+            hudStyle.normal.textColor = Color.white;
+            GUI.color = new Color(0, 0, 0, 0.55f);
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, fs * 2.2f), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(12, fs / 2f, Screen.width - 24, fs * 2), hud, hudStyle);
 
             // 怪物傷害預覽（常駐——這是核心 UI，不是 QoL）
             var cam = Camera.main;

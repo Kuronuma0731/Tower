@@ -81,30 +81,18 @@ namespace Tower.Core.Floors
 
         /// <summary>1F 怪物數值（鏡像 data/monsters.csv）。</summary>
         /// <summary>
-        /// 1F 怪物（數值取自原版總表，見 docs/reference-classic-mt.md）。
-        /// 原版格式 `血 攻 防 敏 exp gold`；敏捷是迴避率，我們 D1 禁機率故不採用。
+        /// 本層引用到的怪物 id。數值一律來自 <see cref="Data.Catalog"/>（data/monsters.csv）——
+        /// 樓層只認 id，不存數值，否則兩邊會漂移（曾經發生過）。
         /// </summary>
-        public static Dictionary<string, MonsterDefinition> Monsters() => new Dictionary<string, MonsterDefinition>
+        public static readonly string[] MonsterRefs =
         {
-            // 綠史萊姆 40/18/1 exp1 gold1 —— 損 32，最便宜的練習對象
-            ["slime_green"] = new MonsterDefinition("slime_green", 18, 1, 40, TraitSet.None, 1, 1, false, "綠史萊姆"),
-            // 蝙蝠 55/32/2 exp1 gold3 —— 損 132，划算的交易（換 200 血瓶淨賺 68）
-            ["bat_cave"] = new MonsterDefinition("bat_cave", 32, 2, 55, TraitSet.None, 3, 1, false, "蝙蝠"),
-            // 黑史萊姆 80/37/9 exp1 gold5 —— 防 9 只低攻擊 1 點，每輪只削 1 血：
-            // 損 2133 遠超 1000 血 → D13 判定為牆。攻擊力上去後才打得起，回頭殺的鉤子。
-            ["slime_black"] = new MonsterDefinition("slime_black", 37, 9, 80, TraitSet.None, 5, 1, false, "黑史萊姆"),
-            // 紅史萊姆 50/20/4 exp1 gold2 —— 綠色的進階版，讓玩家比較兩個預覽數字
-            ["slime_red"] = new MonsterDefinition("slime_red", 20, 4, 50, TraitSet.None, 2, 1, false, "紅史萊姆"),
-            // 骷髏 95/70/0 exp1 gold5 —— 防禦是零，一刀卻 60：打得動不代表該打
-            ["skel_gray"] = new MonsterDefinition("skel_gray", 70, 0, 95, TraitSet.None, 5, 1, false, "骷髏"),
+            "slime_green", "slime_red", "slime_black", "bat_cave", "skel_gray",
         };
 
-        /// <summary>1F 用到的道具（鏡像 data/items.csv）。</summary>
-        public static Dictionary<string, ItemDefinition> Items() => new Dictionary<string, ItemDefinition>
+        /// <summary>本層引用到的道具 id。數值同樣來自 Catalog（data/items.csv）。</summary>
+        public static readonly string[] ItemRefs =
         {
-            ["key_yellow"] = new ItemDefinition("key_yellow", ItemCategory.Key, KeyTier.Yellow),
-            ["potion_s"] = new ItemDefinition("potion_s", ItemCategory.Potion, healHp: 200), // 原版商人：15 金幣 200 血
-            ["gem_atk"] = new ItemDefinition("gem_atk", ItemCategory.Gem, atkBonus: 2),
+            "key_yellow", "potion_s", "gem_atk",
         };
     }
 }

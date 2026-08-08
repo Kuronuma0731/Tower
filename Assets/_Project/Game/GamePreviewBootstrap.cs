@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using Tower.Core.Combat;
 using Tower.Core.Commands;
+using Tower.Core.Data;
 using Tower.Core.Floors;
 using Tower.Core.Grid;
 using UnityEngine;
@@ -25,8 +26,9 @@ namespace Tower.Game
         }
 
         private FloorDefinition _floor;
-        private Dictionary<string, MonsterDefinition> _monsters;
-        private Dictionary<string, ItemDefinition> _items;
+        private Catalog _catalog;
+        private IReadOnlyDictionary<string, MonsterDefinition> _monsters;
+        private IReadOnlyDictionary<string, ItemDefinition> _items;
         private GameState _state;
         private readonly List<IGameCommand> _commands = new List<IGameCommand>();
 
@@ -76,6 +78,7 @@ namespace Tower.Game
 
             LoadStrings();
             LoadDialogues();
+            _catalog = Catalog.Load(ReadDataText("monsters.csv"), ReadDataText("items.csv"));
 
             BuildCamera();
             BuildHud();
@@ -98,8 +101,9 @@ namespace Tower.Game
 
             bool gallery = id == "F00";
             _floor = gallery ? GalleryFloor.Build() : F01.Build();
-            _monsters = gallery ? GalleryFloor.Monsters() : F01.Monsters();
-            _items = gallery ? GalleryFloor.Items() : F01.Items();
+            // 數值全部來自 CSV——樓層只提供佈局，不存數值
+            _monsters = _catalog.Monsters;
+            _items = _catalog.Items;
 
             _state = new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv 鏡像（原版初始值）
             _state.CurrentFloor = id;
@@ -517,6 +521,9 @@ namespace Tower.Game
                 list.Add((speaker, text));
             }
         }
+
+        private static string ReadDataText(string file)
+            => File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "data", file));
 
         private IEnumerable<string> ReadDataLines(string file)
         {

@@ -1,0 +1,17 @@
+id,name_zh,atk,def,hp,agility,traits,gold_drop,exp_drop,is_guardian,sprite,bestiary_note
+slime_green,綠史萊姆,18,1,40,0,,1,1,FALSE,mon_slime_g,最誠實的對手——用牠練習讀傷害預覽。
+slime_red,紅史萊姆,20,4,50,0,,2,1,FALSE,mon_slime_r,比綠色的兇一點。差多少？數字會告訴你。
+slime_black,黑史萊姆,37,9,80,0,,5,1,FALSE,mon_slime_b,防禦只比你的攻擊低一點，每輪削不了多少血。攻擊力上去之前別碰。
+slimeman,史萊姆人,79,24,90,30,,10,2,FALSE,mon_slime_b,高迴避——牠會閃掉你三成的攻擊，而每一次落空你都要多挨一刀。
+bat_cave,蝙蝠,32,2,55,0,,3,1,FALSE,mon_bat_cave,血少但煩人。繞路的代價，常常比打牠更貴。
+skel_gray,骷髏,70,0,95,0,,5,1,FALSE,mon_skel_gray,防禦是零，那把刀卻很利——打得動不代表該打。
+skel_soldier,骷髏兵,100,5,190,0,,13,2,FALSE,mon_skel_soldier,經驗豐厚。為祭壇而戰的第一個好目標。
+rat_giant,喪屍,90,33,190,0,,15,2,FALSE,mon_rat_giant,攻高防低——防禦寶石在牠面前回本最快。
+bandit,守衛,40,55,85,0,,6,1,FALSE,mon_bandit,防禦厚實。把自己的攻擊堆上去之前，牠很難啃。
+ghost_pale,魔法師,10,5,65,0,pierce,4,1,FALSE,mon_ghost_pale,魔攻無視防禦。堆再多的盾，也擋不住魔法。
+wasp_striker,大蝙蝠,55,12,65,0,multi_hit,6,1,FALSE,mon_wasp_striker,二段攻擊。每一點防禦都省下雙倍的血。
+duelist_twin,雙手劍兵,210,110,280,0,multi_hit,34,4,FALSE,mon_duelist_twin,能力高且二段攻擊，防禦堆夠再對付。
+mage_void,上級魔法師,40,90,290,0,pierce,27,3,FALSE,mon_mage_void,魔攻無視防禦。堆再多的盾，也擋不住虛空。
+vampbat_king,紅蝙蝠,185,70,210,0,multi_hit,24,3,FALSE,mon_vampbat_king,三段攻擊。打得慢就是在挨刀。
+gatekeeper_biped,門衛雙足獸,30,24,300,0,first_strike|multi_hit,200,250,TRUE,boss_gate_01,先攻，而且連擊。正面硬撞是死路——回頭看看你的資源。
+warden_10,塔層守衛,,,,,,,,TRUE,boss_warden_10,（佔位：守關級數值＋雙特性，待 Boss 設計語言定案）

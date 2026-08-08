@@ -1,8 +1,11 @@
+using System.IO;
 using NUnit.Framework;
 using Tower.Core.Combat;
 using Tower.Core.Commands;
+using Tower.Core.Data;
 using Tower.Core.Floors;
 using Tower.Core.Simulation;
+using UnityEngine;
 
 namespace Tower.Core.Tests
 {
@@ -14,11 +17,20 @@ namespace Tower.Core.Tests
             Atk = 10, Def = 10, Hp = 1000, // data/balance.csv（對齊原版初始值）
         };
 
+        /// <summary>數值來自 CSV——測試與遊戲讀同一份，不可能漂移。</summary>
+        private static Catalog Data()
+        {
+            string dir = Path.Combine(Application.streamingAssetsPath, "data");
+            return Catalog.Load(
+                File.ReadAllText(Path.Combine(dir, "monsters.csv")),
+                File.ReadAllText(Path.Combine(dir, "items.csv")));
+        }
+
         [Test]
         public void F01_IsSolvable_MainPathHasNoForcedFight()
         {
             var floor = F01.Build();
-            var result = new FloorSolver(floor, F01.Monsters(), F01.Items())
+            var result = new FloorSolver(floor, Data().Monsters, Data().Items)
                 .Solve(Start(), F01.SpawnPos, F01.StairsUpPos);
 
             Assert.AreEqual(SolverStatus.Solvable, result.Status);
@@ -31,7 +43,7 @@ namespace Tower.Core.Tests
         [Test]
         public void F01_BlackSlime_IsLethalAtStart_ComebackHook()
         {
-            var black = F01.Monsters()["slime_black"];
+            var black = Data().Monsters["slime_black"];
             var start = Start();
             var outcome = CombatResolver.ResolveCollision(start.CombatStats, black);
 
@@ -48,8 +60,8 @@ namespace Tower.Core.Tests
         public void F01_PreviewNumbers_MatchTeachingIntent()
         {
             var start = Start().CombatStats;
-            var slime = CombatResolver.ResolveCollision(start, F01.Monsters()["slime_green"]);
-            var bat = CombatResolver.ResolveCollision(start, F01.Monsters()["bat_cave"]);
+            var slime = CombatResolver.ResolveCollision(start, Data().Monsters["slime_green"]);
+            var bat = CombatResolver.ResolveCollision(start, Data().Monsters["bat_cave"]);
 
             Assert.AreEqual(32, slime.ExpectedLoss);   // 最便宜的練習對象（原版數值）
             Assert.AreEqual(132, bat.ExpectedLoss);    // 貴四倍——預覽對比有戲
@@ -75,7 +87,7 @@ namespace Tower.Core.Tests
         {
             // 預算表 F01 行（data/floor-budget.csv）：金 16、經 21、藥水 300
             var floor = F01.Build();
-            var monsters = F01.Monsters();
+            var monsters = Data().Monsters;
             int gold = 0, exp = 0, potionHp = 0;
             foreach (var e in floor.Entities)
             {

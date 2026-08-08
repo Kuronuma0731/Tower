@@ -35,6 +35,8 @@ set_haptics,震動
 set_fontsize,字級
 set_lang,語言
 item_key_label,黃鑰匙
+gallery_name,展示層
+msg_gallery_hint,G＝展示層　F＝回 1F
 msg_demo_end,（工程預覽）已抵達上樓梯——F02 之後見
 paywall_title,塔門在此關閉
 paywall_body,免費的攀登到第 8 層為止。一次付費，解鎖整座塔——沒有廣告，沒有體力，只有你和數字。

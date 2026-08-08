@@ -37,9 +37,27 @@ namespace Tower.Game
 
         private readonly Dictionary<string, GameObject> _entityViews = new Dictionary<string, GameObject>();
         private readonly Dictionary<string, TextMesh> _previewLabels = new Dictionary<string, TextMesh>();
+        private GameObject _boardRoot;
         private GameObject _hero;
         private SpriteRenderer _heroRenderer;
         private Font _font;
+
+        private static readonly Dictionary<string, string> MonsterSprites = new Dictionary<string, string>
+        {
+            ["slime_green"] = "mon_slime_g", ["slime_red"] = "mon_slime_r", ["slime_blue"] = "mon_slime_b",
+            ["bat_cave"] = "mon_bat_cave", ["rat_giant"] = "mon_rat_giant", ["bandit"] = "mon_bandit",
+            ["skel_gray"] = "mon_skel_gray", ["skel_soldier"] = "mon_skel_soldier",
+            ["wasp_striker"] = "mon_wasp_striker", ["duelist_twin"] = "mon_duelist_twin",
+            ["vampbat_king"] = "mon_vampbat_king",
+            ["gatekeeper_biped"] = "boss_gate_01", ["warden_10"] = "boss_warden_10",
+        };
+
+        private static readonly Dictionary<string, string> ItemSprites = new Dictionary<string, string>
+        {
+            ["key_yellow"] = "item_key_y", ["key_blue"] = "item_key_b", ["key_red"] = "item_key_r",
+            ["potion_s"] = "item_potion_s", ["potion_l"] = "item_potion_l",
+            ["gem_atk"] = "item_gem_atk", ["gem_def"] = "item_gem_def", ["hourglass"] = "item_hourglass",
+        };
 
         private TextMesh _hudText;
         private TextMesh _hudFloorText;
@@ -62,22 +80,40 @@ namespace Tower.Game
             LoadStrings();
             LoadDialogues();
 
-            _floor = F01.Build();
-            _monsters = F01.Monsters();
-            _items = F01.Items();
+            BuildCamera();
+            BuildHud();
+            LoadFloor("F01");
+        }
+
+        /// <summary>載入/切換樓層（F01 = 工程測試層；F00 = 展示層，按 G/F 切換）。</summary>
+        private void LoadFloor(string id)
+        {
+            if (_boardRoot != null) Destroy(_boardRoot);
+            _entityViews.Clear();
+            _previewLabels.Clear();
+            _commands.Clear();
+            _activeDialogue = null;
+            if (_dialogueBox != null) _dialogueBox.SetActive(false);
+
+            bool gallery = id == "F00";
+            _floor = gallery ? GalleryFloor.Build() : F01.Build();
+            _monsters = gallery ? GalleryFloor.Monsters() : F01.Monsters();
+            _items = gallery ? GalleryFloor.Items() : F01.Items();
 
             _state = new GameState { Atk = 10, Def = 10, Hp = 550 }; // data/balance.csv 鏡像
-            _state.CurrentFloor = "F01";
-            _state.Position = F01.SpawnPos;
+            _state.CurrentFloor = id;
+            _state.Position = gallery ? GalleryFloor.SpawnPos : F01.SpawnPos;
+            if (gallery) { _state.KeysYellow = 1; _state.KeysBlue = 1; _state.KeysRed = 1; } // 陳列室開門用
 
-            BuildCamera();
+            _boardRoot = new GameObject("board");
             BuildBoard();
             BuildHero();
-            BuildHud();
             RefreshPreviews();
             RefreshHud();
 
-            Toast($"{FloorLabel()}　{_floor.NameZh}", 2.8f); // 進樓層報幕
+            Toast(gallery
+                ? $"{S("gallery_name")}　{S("msg_gallery_hint")}"
+                : $"{FloorLabel()}　{_floor.NameZh}", 3.2f);
         }
 
         private static Font LoadCjkFont()
@@ -137,20 +173,7 @@ namespace Tower.Game
 
             foreach (var e in _floor.Entities)
             {
-                string sprite = e.Type switch
-                {
-                    EntityType.Door => "ent_door_y",
-                    EntityType.Stairs => "ent_stairs_up",
-                    EntityType.Npc => "npc_guard_old",
-                    EntityType.Monster => e.Ref switch
-                    {
-                        "slime_green" => "mon_slime_g",
-                        "bat_cave" => "mon_bat_cave",
-                        _ => "mon_skel_gray",
-                    },
-                    EntityType.Item => e.Ref == "key_yellow" ? "item_key_y" : "item_potion_s",
-                    _ => null,
-                };
+                string sprite = SpriteFor(e);
                 if (sprite == null) continue;
                 var go = MakeSprite(sprite, WorldOf(e.Pos), 10, e.Eid);
                 _entityViews[e.Eid] = go;
@@ -238,6 +261,24 @@ namespace Tower.Game
             return tm;
         }
 
+        private string SpriteFor(FloorEntity e) => e.Type switch
+        {
+            EntityType.Door => e.DoorTier switch
+            {
+                KeyTier.Yellow => "ent_door_y",
+                KeyTier.Blue => "ent_door_b",
+                _ => "ent_door_r",
+            },
+            EntityType.Stairs => e.Stairs == StairsDirection.Up ? "ent_stairs_up" : "ent_stairs_down",
+            EntityType.Npc => "npc_guard_old",
+            EntityType.Shop => "ent_shop",
+            EntityType.Altar => "ent_altar",
+            EntityType.Switch => "ent_switch",
+            EntityType.Monster => MonsterSprites.TryGetValue(e.Ref, out var m) ? m : null,
+            EntityType.Item => ItemSprites.TryGetValue(e.Ref, out var it) ? it : null,
+            _ => null,
+        };
+
         private GameObject MakeSprite(string spriteName, Vector3 pos, int order, string goName)
         {
             var go = new GameObject(goName);
@@ -245,6 +286,7 @@ namespace Tower.Game
             sr.sprite = GetSprite(spriteName);
             sr.sortingOrder = order;
             go.transform.position = pos;
+            if (_boardRoot != null) go.transform.SetParent(_boardRoot.transform, true);
             return go;
         }
 
@@ -311,6 +353,10 @@ namespace Tower.Game
                 if (Input.anyKeyDown) AdvanceDialogue();
                 return;
             }
+
+            // 樓層切換：G＝展示層、F＝回 1F
+            if (Input.GetKeyDown(KeyCode.G) && _state.CurrentFloor != "F00") { LoadFloor("F00"); return; }
+            if (Input.GetKeyDown(KeyCode.F) && _state.CurrentFloor != "F01") { LoadFloor("F01"); return; }
 
             var dir = ReadDirection();
             if (dir == null) return;
@@ -419,6 +465,7 @@ namespace Tower.Game
 
         private string FloorLabel()
         {
+            if (_state.CurrentFloor == "F00") return S("gallery_name");
             int n = int.Parse(_state.CurrentFloor.Substring(1));
             return S("msg_floor_enter").Replace("{n}", n.ToString());
         }

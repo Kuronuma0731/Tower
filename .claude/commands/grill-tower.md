@@ -28,7 +28,7 @@ Genre:
 
 - Tower Strategy RPG
 - Dungeon Crawler
-- Turn-Based Battle
+- Deterministic resource-puzzle combat
 - Single Player
 - Mobile First
 - Android

@@ -1,0 +1,44 @@
+id,text_zh
+msg_cannot_win,無法戰勝
+msg_lethal_blocked,預覽顯示死亡——此路不通
+msg_need_key_y,需要黃鑰匙
+msg_need_key_b,需要藍鑰匙
+msg_need_key_r,需要紅鑰匙
+msg_no_gold,金幣不足
+msg_no_exp,經驗不足
+msg_no_hourglass,沒有沙漏
+msg_undo_done,已回溯
+msg_retreat_done,已退回第 {n} 層入口
+msg_price_rose,價格上漲了
+msg_got_gold,金幣 +{n}
+msg_got_exp,經驗 +{n}
+msg_floor_enter,{n}F
+msg_save_done,已存檔
+msg_cloud_sync,雲端同步完成
+btn_bag,背包
+btn_map,樓層地圖
+btn_bestiary,怪物手冊
+btn_settings,設定
+btn_undo,回溯
+btn_retreat,退回入口
+btn_continue,繼續攀登
+btn_newgame,新的攀登
+btn_back,返回
+btn_exchange,兌換
+lbl_atk,攻擊
+lbl_def,防禦
+lbl_hp,生命
+lbl_gold,金幣
+lbl_exp,經驗
+set_volume,音量
+set_haptics,震動
+set_fontsize,字級
+set_lang,語言
+paywall_title,塔門在此關閉
+paywall_body,免費的攀登到第 8 層為止。一次付費，解鎖整座塔——沒有廣告，沒有體力，只有你和數字。
+paywall_btn,解鎖全塔
+intro_1,塔在一夜之間出現，塔頂懸著一顆據說能實現願望的星鑽。
+intro_2,上去的人沒有一個回來。王國封了塔門，只留下一名老守衛。
+intro_3,今天，你翻過了他的柵欄。
+ending_title,星鑽在手
+ending_body,（結局文案待 25–30 層內容定案）

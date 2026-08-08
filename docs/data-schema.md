@@ -3,6 +3,10 @@
 數值管線的形狀：**試算表（CSV）→ DataPipeline 匯入 → ScriptableObject → Bootstrap 轉 POCO → Core**。
 設計師（你）只碰 CSV 和關卡編輯器，不碰 Inspector。
 
+**CSV 實體檔已存在於 repo 根層 `data/`**（文本骨架先於 Core，2026-08-08 決策）。Unity 專案建立後由 DataPipeline 從此處讀取；`data/` 是唯一的編輯位置。
+
+**鐵則：程式碼禁止出現玩家可見字串。** 所有玩家看得到的文字——按鈕、訊息、對話、描述——一律走 `ui-strings.csv` / `dialogues.csv` / 各表的 `*_zh` 欄，程式只認 id。日後本地化 = 換表，不是掃程式碼。
+
 一條總規則：**格子只放地形，會變的東西全是實體（entity）**——實體才有 id，才能被 `IGameCommand` 記錄與回溯、被封閉經濟（D11）逐一清點。
 
 ---
@@ -41,6 +45,7 @@
 | `atk_bonus` / `def_bonus` | int | 永久加成（僅 gem） |
 | `undo_steps` | int | 每顆回退步數（僅 undo；**數值待決**，先填 5 佔位） |
 | `sprite` | string | 素材 id |
+| `desc_zh` | string | 背包/拾取時顯示的道具描述 |
 
 預設八件套：
 
@@ -120,10 +125,20 @@ player_start_keys_red,    0
 
 ```
 dialogues.csv: id, speaker_zh, text_zh
-               dlg_f08_hint, 老守衛, 那扇紅門後面的東西，值得你留到最後一把鑰匙。
+               dlg_f08_paywall, 老守衛, 那扇紅門後面的東西，值得你留到最後一把鑰匙。
 ```
 
 MVP 對話是單句/短序列（同 id 多列 = 依序播放），不做分支樹——NPC 在本作是提示與敘事，不是任務系統（任務門是 11F+ 的事）。所有玩家可見文字集中在 `*_zh` 欄，日後本地化時整欄翻譯即可。
+
+**對話框互動規格（MVP）**：撞 NPC 觸發（方向鍵下自然發生）；點擊畫面任意處推進下一句；序列播畢後再撞 = 重播**最後一句**（守衛的提示要能重看）；無快轉、無歷史記錄（序列最長 4 句，不需要）；對話框固定在畫面下方拇指區之上，字級跟隨設定。**對話不是 `IGameCommand`**——它不改任何遊戲狀態，不可回溯也不需要。
+
+## 5c. ui-strings.csv — 系統文字
+
+```
+ui-strings.csv: id, text_zh
+```
+
+按鈕、系統訊息、標籤、付費牆文案、開場三句——**所有不屬於對話的玩家可見文字**。`{n}`、`{item}` 是執行期插值佔位符。首發 40 餘條已在 `data/ui-strings.csv`。
 
 ## 6. Core POCO（欄位對應，實作時的形狀）
 

@@ -59,8 +59,15 @@ namespace Tower.Game
             ["gem_atk"] = "item_gem_atk", ["gem_def"] = "item_gem_def", ["hourglass"] = "item_hourglass",
         };
 
-        private TextMesh _hudText;
-        private TextMesh _hudFloorText;
+        private TextMesh _statusText;
+        private readonly TextMesh[] _keyCounts = new TextMesh[4]; // 黃/藍/紅鑰匙、沙漏
+        private GameObject _receipt;
+        private TextMesh _receiptTitle;
+        private TextMesh _receiptLeft;
+        private TextMesh _receiptRight;
+        private TextMesh _receiptLoss;
+        private SpriteRenderer _receiptIcon;
+        private float _receiptUntil;
         private TextMesh _toastText;
         private float _toastUntil;
         private GameObject _dialogueBox;
@@ -94,6 +101,7 @@ namespace Tower.Game
             _commands.Clear();
             _activeDialogue = null;
             if (_dialogueBox != null) _dialogueBox.SetActive(false);
+            if (_receipt != null) _receipt.SetActive(false);
 
             bool gallery = id == "F00";
             _floor = gallery ? GalleryFloor.Build() : F01.Build();
@@ -152,7 +160,7 @@ namespace Tower.Game
             cam.orthographicSize = 7.2f;
             cam.backgroundColor = new Color(0.07f, 0.06f, 0.09f);
             cam.clearFlags = CameraClearFlags.SolidColor;
-            camGo.transform.position = new Vector3(0, 0, -10);
+            camGo.transform.position = new Vector3(-3.6f, 0, -10); // 左移騰出側欄（經典魔塔佈局）
             camGo.tag = "MainCamera";
         }
 
@@ -195,11 +203,50 @@ namespace Tower.Game
 
         private void BuildHud()
         {
-            // 數值列：壓在頂排牆上（y = +6）——棋盤看得見它就看得見
-            MakeBackplate(new Vector3(0, 6f, 0), 13f, 1.04f, 0.78f, 90, "hud_bg");
-            _hudFloorText = MakeText(null, new Vector3(-6.28f, 6f, 0), 0.5f, TextAnchor.MiddleLeft, 100);
-            _hudFloorText.color = new Color(0.55f, 0.85f, 1f);
-            _hudText = MakeText(null, new Vector3(0.35f, 6f, 0), 0.45f, TextAnchor.MiddleCenter, 100);
+            // ── 狀態欄（左上，經典魔塔佈局）──
+            MakeBackplate(new Vector3(-10.25f, 3.1f, 0), 5.9f, 6.9f, 0.84f, 90, "panel_status");
+            var portrait = MakeSprite("hero_down", new Vector3(-12.05f, 5.35f, 0), 95, "portrait");
+            portrait.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+            _statusText = MakeText(null, new Vector3(-12.9f, 4.15f, 0), 0.52f, TextAnchor.UpperLeft, 100);
+            _statusText.alignment = TextAlignment.Left;
+            _statusText.lineSpacing = 1.15f;
+
+            // ── 鑰匙欄（左下）──
+            MakeBackplate(new Vector3(-10.25f, -3.55f, 0), 5.9f, 5.5f, 0.84f, 90, "panel_keys");
+            string[] icons = { "item_key_y", "item_key_b", "item_key_r", "item_hourglass" };
+            for (int i = 0; i < icons.Length; i++)
+            {
+                float y = -1.75f - i * 1.15f;
+                var icon = MakeSprite(icons[i], new Vector3(-12.2f, y, 0), 95, $"key_icon_{i}");
+                icon.transform.localScale = new Vector3(0.85f, 0.85f, 1f);
+                _keyCounts[i] = MakeText(null, new Vector3(-11.45f, y, 0), 0.55f, TextAnchor.MiddleLeft, 100);
+                _keyCounts[i].alignment = TextAlignment.Left;
+            }
+
+            // ── 戰報面板（碰撞戰結算後短暫顯示；D7：無撤退選項，戰前判斷交給常駐預覽）──
+            _receipt = new GameObject("receipt");
+            MakeBackplate(new Vector3(0, 0.2f, 0), 11.4f, 4.9f, 0.93f, 110, "receipt_bg")
+                .transform.SetParent(_receipt.transform);
+            _receiptTitle = MakeText(_receipt.transform, new Vector3(0, 1.85f, 0), 0.55f, TextAnchor.MiddleCenter, 120);
+            _receiptTitle.color = new Color(1f, 0.85f, 0.4f);
+            var iconGo = new GameObject("receipt_icon");
+            iconGo.transform.SetParent(_receipt.transform);
+            iconGo.transform.localPosition = new Vector3(-4.15f, 0.35f, 0);
+            iconGo.transform.localScale = new Vector3(1.9f, 1.9f, 1f);
+            _receiptIcon = iconGo.AddComponent<SpriteRenderer>();
+            _receiptIcon.sortingOrder = 120;
+            _receiptLeft = MakeText(_receipt.transform, new Vector3(-2.9f, 1.15f, 0), 0.48f, TextAnchor.UpperLeft, 120);
+            _receiptLeft.alignment = TextAlignment.Left;
+            _receiptLeft.lineSpacing = 1.15f;
+            var heroIcon = MakeSprite("hero_down", new Vector3(4.15f, 0.35f, 0), 120, "receipt_hero");
+            heroIcon.transform.SetParent(_receipt.transform);
+            heroIcon.transform.localScale = new Vector3(1.9f, 1.9f, 1f);
+            _receiptRight = MakeText(_receipt.transform, new Vector3(0.9f, 1.15f, 0), 0.48f, TextAnchor.UpperLeft, 120);
+            _receiptRight.alignment = TextAlignment.Left;
+            _receiptRight.lineSpacing = 1.15f;
+            _receiptLoss = MakeText(_receipt.transform, new Vector3(0, -1.75f, 0), 0.6f, TextAnchor.MiddleCenter, 120);
+            _receiptLoss.color = new Color(1f, 0.45f, 0.4f);
+            _receipt.SetActive(false);
 
             // 提示：棋盤中上（有訊息才出現）
             _toastText = MakeText(null, new Vector3(0, 2.5f, 0), 0.55f, TextAnchor.MiddleCenter, 100);
@@ -213,6 +260,18 @@ namespace Tower.Game
             _dialogueSpeaker.color = new Color(1f, 0.85f, 0.4f);
             _dialogueText = MakeText(_dialogueBox.transform, new Vector3(-6.1f, -6.18f, 0), 0.46f, TextAnchor.MiddleLeft, 100);
             _dialogueBox.SetActive(false);
+        }
+
+        /// <summary>戰報：怪物 vs 勇者的結算對照（顯示用，非確認框——D7 不設確認）。</summary>
+        private void ShowReceipt(MonsterDefinition m, in CollisionOutcome outcome)
+        {
+            _receiptTitle.text = $"{m.NameZh}　{S("lbl_vs")}　{S("lbl_hero")}";
+            _receiptIcon.sprite = GetSprite(MonsterSprites[m.Id]);
+            _receiptLeft.text = $"{S("lbl_atk")} {m.Atk}\n{S("lbl_def")} {m.Def}\n{S("lbl_hp")} {m.Hp}";
+            _receiptRight.text = $"{S("lbl_atk")} {_state.Atk}\n{S("lbl_def")} {_state.Def}\n{S("lbl_hp")} {_state.Hp}";
+            _receiptLoss.text = $"{S("lbl_hp")} -{outcome.ExpectedLoss}";
+            _receipt.SetActive(true);
+            _receiptUntil = Time.time + 2.2f;
         }
 
         private GameObject MakeBackplate(Vector3 pos, float w, float h, float alpha, int order, string name)
@@ -348,6 +407,14 @@ namespace Tower.Game
             if (_toastText.gameObject.activeSelf && Time.time >= _toastUntil)
                 _toastText.gameObject.SetActive(false);
 
+            // 戰報開著：任意鍵或逾時關閉，期間凍結移動
+            if (_receipt != null && _receipt.activeSelf)
+            {
+                if (Input.anyKeyDown || Time.time >= _receiptUntil)
+                    _receipt.SetActive(false);
+                return;
+            }
+
             if (_activeDialogue != null)
             {
                 if (Input.anyKeyDown) AdvanceDialogue();
@@ -417,6 +484,7 @@ namespace Tower.Game
                         if (outcome.ExpectedLoss >= _state.Hp) { Toast(S("msg_lethal_blocked")); return; }
                         Apply(new CollisionBattleCommand(entity.Eid, outcome, monster));
                         Destroy(_entityViews[entity.Eid]); // 標籤是子物件，一起銷毀
+                        ShowReceipt(monster, outcome);
                         return;
                 }
             }
@@ -487,11 +555,17 @@ namespace Tower.Game
 
         private void RefreshHud()
         {
-            _hudFloorText.text = FloorLabel();
-            _hudText.text =
-                $"{S("lbl_hp")} {_state.Hp}　{S("lbl_atk")} {_state.Atk}　{S("lbl_def")} {_state.Def}　" +
-                $"{S("lbl_gold")} {_state.Gold}　{S("lbl_exp")} {_state.Exp}　" +
-                $"{S("item_key_label")}×{_state.KeysYellow}";
+            _statusText.text =
+                $"{FloorLabel()}\n" +
+                $"{S("lbl_hp")}　{_state.Hp}\n" +
+                $"{S("lbl_atk")}　{_state.Atk}\n" +
+                $"{S("lbl_def")}　{_state.Def}\n" +
+                $"{S("lbl_gold")}　{_state.Gold}\n" +
+                $"{S("lbl_exp")}　{_state.Exp}";
+            _keyCounts[0].text = $"×  {_state.KeysYellow}";
+            _keyCounts[1].text = $"×  {_state.KeysBlue}";
+            _keyCounts[2].text = $"×  {_state.KeysRed}";
+            _keyCounts[3].text = $"×  {_state.Hourglasses}";
         }
 
         private void RefreshPreviews()

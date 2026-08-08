@@ -63,17 +63,17 @@ namespace Tower.Game
         public static Dictionary<string, MonsterDefinition> Monsters()
         {
             var m = F01.Monsters(); // 1F 三隻用真數值
-            m["slime_red"] = new MonsterDefinition("slime_red", 16, 6, 38, TraitSet.None, 3, 4, false);
-            m["slime_blue"] = new MonsterDefinition("slime_blue", 20, 8, 45, TraitSet.None, 4, 6, false);
-            m["rat_giant"] = new MonsterDefinition("rat_giant", 18, 5, 40, TraitSet.None, 5, 6, false);
-            m["bandit"] = new MonsterDefinition("bandit", 22, 10, 55, TraitSet.None, 12, 7, false);
-            m["skel_soldier"] = new MonsterDefinition("skel_soldier", 26, 13, 60, TraitSet.None, 8, 14, false);
-            m["wasp_striker"] = new MonsterDefinition("wasp_striker", 24, 9, 48, TraitSet.FirstStrike, 8, 10, false);
-            m["duelist_twin"] = new MonsterDefinition("duelist_twin", 26, 12, 66, TraitSet.MultiHit, 10, 13, false);
-            m["vampbat_king"] = new MonsterDefinition("vampbat_king", 30, 12, 80, TraitSet.Lifesteal, 14, 18, false);
+            m["slime_red"] = new MonsterDefinition("slime_red", 16, 6, 38, TraitSet.None, 3, 4, false, "紅史萊姆");
+            m["slime_blue"] = new MonsterDefinition("slime_blue", 20, 8, 45, TraitSet.None, 4, 6, false, "藍史萊姆");
+            m["rat_giant"] = new MonsterDefinition("rat_giant", 18, 5, 40, TraitSet.None, 5, 6, false, "大老鼠");
+            m["bandit"] = new MonsterDefinition("bandit", 22, 10, 55, TraitSet.None, 12, 7, false, "強盜");
+            m["skel_soldier"] = new MonsterDefinition("skel_soldier", 26, 13, 60, TraitSet.None, 8, 14, false, "骷髏兵");
+            m["wasp_striker"] = new MonsterDefinition("wasp_striker", 24, 9, 48, TraitSet.FirstStrike, 8, 10, false, "刺蜂");
+            m["duelist_twin"] = new MonsterDefinition("duelist_twin", 26, 12, 66, TraitSet.MultiHit, 10, 13, false, "雙刀鬥士");
+            m["vampbat_king"] = new MonsterDefinition("vampbat_king", 30, 12, 80, TraitSet.Lifesteal, 14, 18, false, "吸血蝠王");
             m["gatekeeper_biped"] = new MonsterDefinition("gatekeeper_biped", 30, 24, 300,
-                TraitSet.FirstStrike | TraitSet.MultiHit, 200, 250, true);
-            m["warden_10"] = new MonsterDefinition("warden_10", 45, 30, 600, TraitSet.None, 500, 600, true);
+                TraitSet.FirstStrike | TraitSet.MultiHit, 200, 250, true, "門衛雙足獸");
+            m["warden_10"] = new MonsterDefinition("warden_10", 45, 30, 600, TraitSet.None, 500, 600, true, "塔層守衛");
             return m;
         }
 

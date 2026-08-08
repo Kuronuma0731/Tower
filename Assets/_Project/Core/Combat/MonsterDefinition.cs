@@ -15,11 +15,16 @@ namespace Tower.Core.Combat
         public int ExpDrop { get; }
         public bool IsGuardian { get; }
 
+        /// <summary>顯示名（monsters.csv 的 name_zh）。</summary>
+        public string NameZh { get; }
+
         public MonsterDefinition(
             string id, int atk, int def, int hp,
-            TraitSet traits, int goldDrop, int expDrop, bool isGuardian)
+            TraitSet traits, int goldDrop, int expDrop, bool isGuardian,
+            string nameZh = "")
         {
             Id = id;
+            NameZh = nameZh;
             Atk = atk;
             Def = def;
             Hp = hp;

@@ -68,9 +68,9 @@ namespace Tower.Core.Floors
         /// <summary>1F 怪物數值（鏡像 data/monsters.csv）。</summary>
         public static Dictionary<string, MonsterDefinition> Monsters() => new Dictionary<string, MonsterDefinition>
         {
-            ["slime_green"] = new MonsterDefinition("slime_green", 12, 4, 30, TraitSet.None, 2, 3, false),
-            ["bat_cave"] = new MonsterDefinition("bat_cave", 14, 6, 28, TraitSet.None, 4, 5, false),
-            ["skel_gray"] = new MonsterDefinition("skel_gray", 15, 11, 35, TraitSet.None, 8, 10, false),
+            ["slime_green"] = new MonsterDefinition("slime_green", 12, 4, 30, TraitSet.None, 2, 3, false, "綠史萊姆"),
+            ["bat_cave"] = new MonsterDefinition("bat_cave", 14, 6, 28, TraitSet.None, 4, 5, false, "洞穴蝙蝠"),
+            ["skel_gray"] = new MonsterDefinition("skel_gray", 15, 11, 35, TraitSet.None, 8, 10, false, "小骷髏"),
         };
 
         /// <summary>1F 用到的道具（鏡像 data/items.csv）。</summary>

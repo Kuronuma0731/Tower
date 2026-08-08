@@ -36,6 +36,8 @@ set_fontsize,字級
 set_lang,語言
 item_key_label,黃鑰匙
 gallery_name,展示層
+lbl_vs,VS
+lbl_hero,勇者
 msg_gallery_hint,G＝展示層　F＝回 1F
 msg_demo_end,（工程預覽）已抵達上樓梯——F02 之後見
 paywall_title,塔門在此關閉

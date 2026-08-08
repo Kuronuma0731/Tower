@@ -24,21 +24,22 @@ namespace Tower.Core.Floors
 
         public static FloorDefinition Build()
         {
-            // 三段式結構（經典魔塔版面）：下層入口廳 → 主門 → 上層大廳 → 樓梯。
-            // 兩側 x1/x11 走廊在上層形成迴圈，讓探索不是單線。
+            // 版面取法原版（見 docs/reference-classic-mt.md）：**不是迷宮，是開放大廳配牆塊障礙**，
+            // 密度高、四角有探索獎勵、寶物室用門封死。
+            // 上半＝開放式大廳＋牆塊；主門是一整道橫牆的唯一開口；下半＝入口廳＋兩側封閉壁龕。
             var rows = new[]
             {
                 "WWWWWWWWWWWWW", // y0
-                "W...........W", // y1   上層頂廊：上樓梯 (6,1)
-                "W.WWW...WWW.W", // y2
-                "W.W.......W.W", // y3   上層大廳：史萊姆 (4,3) 站在主路旁，可繞過
-                "W.W.WW.WW.W.W", // y4
-                "W...W...W...W", // y5
-                "WWWWWW.WWWWWW", // y6   主門 (6,6)——上下唯一通道
+                "W....W......W", // y1   頂廊：上樓梯 (10,1) 右上角、攻擊寶石 (1,1) 左上角
+                "W.WW.W.WWW..W", // y2
+                "W.WW.....WW.W", // y3   血瓶 (11,3) 右側走廊
+                "W......W....W", // y4   骷髏 (10,4) 貴但可選
+                "W.WWW...WW..W", // y5
+                "WWWWWW.WWWWWW", // y6   主門 (6,6)——整道橫牆的唯一開口
                 "W...........W", // y7   下層走廊
                 "WWW.WWWWW.WWW", // y8
-                "W...........W", // y9   口袋門 (2,9) 左、(10,9) 右
-                "W.W.......W.W", // y10  左口袋 蝙蝠(1,10)／右口袋 骷髏(11,10)
+                "W...........W", // y9   壁龕門 (2,9) 左、(10,9) 右
+                "W.W.......W.W", // y10  左壁龕 蝙蝠(1,10)／右壁龕 黑史萊姆(11,10)
                 "W.W.......W.W", // y11  入口廳：鑰匙 (3,11)(9,11)、守衛 (5,11)、spawn (6,11)
                 "WWWWWWWWWWWWW", // y12
             };
@@ -58,14 +59,19 @@ namespace Tower.Core.Floors
                 new FloorEntity("F01_i02", EntityType.Item, new GridPos(9, 11), @ref: "key_yellow"),
                 new FloorEntity("F01_i03", EntityType.Item, new GridPos(1, 11), @ref: "potion_s"),
                 new FloorEntity("F01_i04", EntityType.Item, new GridPos(11, 11), @ref: "potion_s"),
+                // 四角探索獎勵——原版的密度來自這種「走到底就有東西」
+                new FloorEntity("F01_i05", EntityType.Item, new GridPos(1, 1), @ref: "gem_atk"),
+                new FloorEntity("F01_i06", EntityType.Item, new GridPos(11, 3), @ref: "potion_s"),
 
-                // 主路上的史萊姆都可繞過——第一層不強迫戰鬥
+                // 主路上的怪都可繞過——第一層不強迫戰鬥
                 new FloorEntity("F01_m01", EntityType.Monster, new GridPos(6, 9), @ref: "slime_green"),
-                // (6,3) 是 y4 中段唯一的向上開口——擺怪就會變成強迫戰鬥（驗證器抓過一次），移到旁邊
                 new FloorEntity("F01_m02", EntityType.Monster, new GridPos(4, 3), @ref: "slime_green"),
-                // 左口袋：好交易（虧 24 血換 150 血瓶）
+                new FloorEntity("F01_m05", EntityType.Monster, new GridPos(8, 3), @ref: "slime_red"),
+                // 骷髏：打得動（防 0）但一刀 60——「打得動不代表該打」的活教材
+                new FloorEntity("F01_m06", EntityType.Monster, new GridPos(10, 4), @ref: "skel_gray"),
+                // 左壁龕：好交易（虧 132 血換 200 血瓶）
                 new FloorEntity("F01_m03", EntityType.Monster, new GridPos(1, 10), @ref: "bat_cave"),
-                // 右口袋：預覽顯示紅色致死數字，D13 判定為牆——開這扇門等於白費一把鑰匙。
+                // 右壁龕：預覽顯示紅色致死數字，D13 判定為牆——開這扇門等於白費一把鑰匙。
                 // 這是刻意的第一課：花錢之前先看數字
                 new FloorEntity("F01_m04", EntityType.Monster, new GridPos(11, 10), @ref: "slime_black"),
             };
@@ -87,6 +93,10 @@ namespace Tower.Core.Floors
             // 黑史萊姆 80/37/9 exp1 gold5 —— 防 9 只低攻擊 1 點，每輪只削 1 血：
             // 損 2133 遠超 1000 血 → D13 判定為牆。攻擊力上去後才打得起，回頭殺的鉤子。
             ["slime_black"] = new MonsterDefinition("slime_black", 37, 9, 80, TraitSet.None, 5, 1, false, "黑史萊姆"),
+            // 紅史萊姆 50/20/4 exp1 gold2 —— 綠色的進階版，讓玩家比較兩個預覽數字
+            ["slime_red"] = new MonsterDefinition("slime_red", 20, 4, 50, TraitSet.None, 2, 1, false, "紅史萊姆"),
+            // 骷髏 95/70/0 exp1 gold5 —— 防禦是零，一刀卻 60：打得動不代表該打
+            ["skel_gray"] = new MonsterDefinition("skel_gray", 70, 0, 95, TraitSet.None, 5, 1, false, "骷髏"),
         };
 
         /// <summary>1F 用到的道具（鏡像 data/items.csv）。</summary>
@@ -94,6 +104,7 @@ namespace Tower.Core.Floors
         {
             ["key_yellow"] = new ItemDefinition("key_yellow", ItemCategory.Key, KeyTier.Yellow),
             ["potion_s"] = new ItemDefinition("potion_s", ItemCategory.Potion, healHp: 200), // 原版商人：15 金幣 200 血
+            ["gem_atk"] = new ItemDefinition("gem_atk", ItemCategory.Gem, atkBonus: 2),
         };
     }
 }

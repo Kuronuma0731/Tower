@@ -22,8 +22,10 @@ namespace Tower.Core.Tests
                 .Solve(Start(), F01.SpawnPos, F01.StairsUpPos);
 
             Assert.AreEqual(SolverStatus.Solvable, result.Status);
-            // 最佳路線：開左口袋殺蝙蝠（-132）拿血瓶（+200）→ 1000 - 132 + 200 = 1068
-            Assert.AreEqual(1068, result.BestExitHp);
+            // 最佳路線是「先探索再開打」：左上角撿攻擊寶石（攻 10→12）後，蝙蝠只損 110 而非 132。
+            // 1000 − 110 + 200（左壁龕）+ 200（右側走廊）= 1290。
+            // 這個誘因是佈局自然長出來的，非刻意設計——由驗證器發現。
+            Assert.AreEqual(1290, result.BestExitHp);
         }
 
         [Test]

@@ -66,6 +66,7 @@ hourglass   沙漏     undo   undo_steps=5(佔位)
 {
   "schema": 1,                          // 格式版本——未來遷移的保命欄位
   "id": "F08",
+  "name_zh": "門衛的走廊",              // 樓層地圖 UI 顯示名
   "width": 13, "height": 13,           // 已定案：全塔固定 13×13
   "tiles": [                            // 地形用字元列編碼：一列一字串，git diff 直接可讀
     "WWWWWWWWWWWWW",                    //   W=牆  .=可走  ^v<>=單向（箭頭即通行方向）
@@ -81,7 +82,8 @@ hourglass   沙漏     undo   undo_steps=5(佔位)
     { "eid": "F08_sw1", "type": "switch",  "targets": ["F09_d02"], "x": 3, "y": 3 },  // 跨層結構用
     { "eid": "F08_sh1", "type": "shop",    "ref": "shop_f03", "x": 10, "y": 2 },
     { "eid": "F08_a01", "type": "altar",   "ref": "altar_std", "x": 2, "y": 10 },
-    { "eid": "F08_n01", "type": "npc",     "dialogue": "dlg_f08_hint", "x": 8, "y": 5 }
+    { "eid": "F08_n01", "type": "npc",     "dialogue": "dlg_f08_paywall", "x": 8, "y": 5 },
+    { "eid": "F01_sp1", "type": "spawn",   "x": 6, "y": 1 }                       // 全塔唯一，僅 1F
   ]
 }
 ```
@@ -172,6 +174,7 @@ class GameState {
 3. **特性合法性**：`traits` 只接受詞彙表列出的名稱與參數格式（擋 typo——`first_stirke` 這種錯在匯入期抓，不是在玩家手機上）
 4. **地形字元合法性**：tiles 只接受 `W . ^ v < >`，每層恰好 13×13
 5. **結構最低要求**：每層至少一個樓梯；`is_guardian` 怪物所在樓層記入守關清單，供驗證器跑兩條合約
+6. **樓梯配對**：F(n) 的上樓梯座標必須等於 F(n+1) 的下樓梯座標（座標對齊規約，見 `floor-authoring.md`）；`spawn` 全塔恰好一個且在 1F
 
 ## 已確認紀錄（2026-08-08）
 

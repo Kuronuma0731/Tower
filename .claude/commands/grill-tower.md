@@ -43,8 +43,7 @@ Core gameplay:
 - Shops
 - Deterministic collision battles (the ONLY battle form — no command battle, no active skills)
 - Monster traits (deterministic passives: first-strike, multi-hit, pierce, lifesteal, …)
-- Equipment
-- Dual-currency growth (gold buys items, EXP buys stats at altars)
+- Dual-currency growth (gold buys items, EXP buys stats at altars; no equipment system — gems + altars are the only growth sources)
 - Floor teleportation
 - Puzzle solving
 

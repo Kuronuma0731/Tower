@@ -1,0 +1,16 @@
+{
+    "name": "Tower.Game",
+    "rootNamespace": "Tower.Game",
+    "references": [
+        "Tower.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

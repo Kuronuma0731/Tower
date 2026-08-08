@@ -41,18 +41,19 @@ Core gameplay:
 - Keys and doors
 - NPC
 - Shops
-- Turn-based battles
-- Skills
+- Deterministic collision battles (the ONLY battle form — no command battle, no active skills)
+- Monster traits (deterministic passives: first-strike, multi-hit, pierce, lifesteal, …)
 - Equipment
-- Monster abilities
+- Dual-currency growth (gold buys items, EXP buys stats at altars)
 - Floor teleportation
 - Puzzle solving
 
-Locked decisions (see `CONTEXT.md` for rationale):
+Locked decisions D1–D12 (see `CONTEXT.md` for rationale and accepted costs). The ones most often worth stress-testing at their edges:
 
-- **Hybrid combat** — regular monsters resolve by collision; Boss/elite enter command battle. Both share one `CombatResolver`.
-- **Premium** — no ads, no energy, no live-ops. Free first floors + one unlock IAP.
-- **MVP is 10–15 floors**, not 50.
+- **D1 Pure collision combat** — Bosses are collision battles too; drama must come from stats + trait combos.
+- **D7 Undo costs a consumable; misclicks have NO free remedy** — the riskiest UX decision in the project.
+- **D11 Fully closed economy** — monsters never respawn; the reachability solver is a lifeline, not a tool.
+- **D12 Solo dev + AI** — every scope claim must survive this denominator.
 
 ---
 
@@ -82,21 +83,17 @@ Will players get bored?
 
 ### Battle System
 
-Does the collision/command split hold up, or does it feel like two games?
+Is the monster-trait vocabulary rich enough to carry 25–30 floors without command battle?
 
-Is the 5% command-battle ratio right?
+Can Boss fights feel climactic when they are just big collision battles?
 
-Will battle animations become annoying?
+Do trait combinations stay calculable in the player's head, or does the preview become a black box they blindly trust?
 
-Should animations be skippable?
+Will battle feedback (number pops, shake) stay satisfying after 500 battles?
 
-How long should an average battle last?
+What happens when the preview shows lethal damage — is "you simply can't press into it" enough of a fail state?
 
-What happens if a player loses?
-
-Should escape always succeed?
-
-Does losing the damage preview at Boss fights break the game's core promise?
+Is the no-free-undo-for-misclicks stance (D7) survivable in store reviews?
 
 ---
 

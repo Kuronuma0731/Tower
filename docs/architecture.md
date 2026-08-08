@@ -12,9 +12,9 @@
 
 理由不是潔癖，是三件很實際的事：
 
-1. **可達性驗證器**要在沒有 Unity 執行環境的情況下，幾秒內模擬幾千條路徑。邏輯綁在 MonoBehaviour 上就辦不到。
+1. **可達性驗證器**要在沒有 Unity 執行環境的情況下，幾秒內模擬幾千條路徑。邏輯綁在 MonoBehaviour 上就辦不到。D11 封閉經濟下驗證器是生命線，這條理由的權重是三條裡最高的。
 2. 數值測試可以用一般 NUnit 跑，不需要 PlayMode（PlayMode 測試慢到你不會想跑）。
-3. 碰撞戰與指令戰共用 `CombatResolver` 才可能——兩者的表現層完全不同，唯有邏輯層純粹才共用得起來。
+3. **傷害預覽**和實戰必須跑同一個函式——邏輯層純粹，預覽才永遠不會騙人。
 
 具體做法：把邏輯放進一個獨立的 asmdef，**不引用 UnityEngine**。編譯器會幫你守住這條線。
 
@@ -43,19 +43,17 @@ Assets/
       Save/                     # 存檔資料模型與序列化（POCO）
       Simulation/               # 可達性驗證器 + Boss 壓力測試的無畫面模擬
     Features/                   # MonoBehaviour 層，一個功能一個資料夾
-      FloorExploration/         # 移動輸入、樓層渲染、互動
+      FloorExploration/         # 方向鍵輸入、樓層渲染、互動
       CollisionBattle/          # 碰撞戰表現（數字跳動、震動回饋）
-      CommandBattle/            # 指令戰 UI、動畫、回合流程
       Bestiary/                 # 怪物手冊、傷害預覽
-      Shop/
+      Shop/                     # 商店與祭壇（金幣買道具、經驗買屬性）
       Dialogue/
-      FloorMap/                 # 樓層地圖與樓傳介面
+      FloorMap/                 # 樓層地圖、樓傳介面、安全區點擊傳送
       SaveLoad/                 # 快照、自動存檔、雲端同步
     Data/                       # ScriptableObject 資產與其定義
-      Monsters/
-      Items/
+      Monsters/                 # 數值 + 怪物特性組合
+      Items/                    # 含回溯道具
       Floors/
-      Skills/
     UI/                         # 共用 UI 元件、字級與安全區處理
     Bootstrap/                  # 組裝根：建立服務、注入相依
   Editor/
@@ -70,24 +68,21 @@ Assets/
 
 ## 三個關鍵設計
 
-### 1. CombatResolver 是唯一數值真相
+### 1. DamageFormula 是唯一數值真相
 
-共用的單位是**傷害公式**，不是回合函式——兩種戰鬥的回合結構本來就不同（碰撞戰沒有玩家決策，指令戰每回合都有），硬要共用一個 `ResolveTurn(state, action)` 只會逼出 `Action.None` 這種假值。分成三層：
+D1 之後只有一種戰鬥，但分層仍然保留——公式與結算分開，**怪物特性**才有地方掛：
 
 ```
 DamageFormula                                    // 最底層，唯一的公式所在地
-  └─ ComputeDamage(attackerStats, defenderStats, modifiers) → int
+  └─ ComputeDamage(attackerStats, defenderStats, traits) → int
 
-CombatResolver                                   // 碰撞戰：在公式上跑封閉迴圈
-  └─ ResolveCollision(attacker, defender) → CollisionOutcome   // 確定性，一次算完
-
-CommandBattleEngine                              // 指令戰：在公式上跑互動回合
-  └─ AdvanceTurn(battleState, playerAction) → TurnOutcome
+CombatResolver                                   // 碰撞戰：在公式上跑確定性迴圈
+  └─ ResolveCollision(attacker, defender) → CollisionOutcome   // 一次算完
 ```
 
-`ResolveCollision` 和 `AdvanceTurn` **都只能透過 `DamageFormula` 算傷害**——公式只有一份，兩種戰鬥的數值就永遠一致，玩家在碰撞戰養出的數值直覺到指令戰不會失效。
+**怪物特性**（先攻、連擊、魔攻、吸血…）是 `DamageFormula` 的輸入參數，不是散落在各處的 if——新增一個特性 = 擴充公式的一個結算規則 + 資料表一個欄位。特性一律確定性，禁止機率（D1 衍生規則，機率會毀掉傷害預覽）。
 
-`ResolveCollision` 必須無副作用：吃狀態進去、吐結果出來、不改任何東西。因為**傷害預覽**就是直接呼叫它——預覽和實戰跑的是同一個函式，所以預覽永遠不會騙人。
+`ResolveCollision` 必須無副作用：吃狀態進去、吐結果出來、不改任何東西。因為**傷害預覽**就是直接呼叫它——預覽和實戰跑的是同一個函式，所以預覽永遠不會騙人。Boss 也走同一條路——Boss 只是數值大、特性組合兇的怪物，沒有專屬程式路徑。
 
 ### 2. 狀態變更走指令模式；存檔是快照 + 指令流
 
@@ -106,19 +101,19 @@ SaveFile
 
 這個結構讓三件事變成同一件事：
 
-- **Undo** = 從指令流尾端 pop 一個 command 執行 `Undo`
+- **回溯** = 從指令流尾端 pop command 執行 `Undo`——但入口在遊戲層：先檢查並消耗一顆**回溯道具**（D7），Core 只提供機制，不管收費
 - **當前狀態** = 入口快照 + 重放指令流（存檔裡甚至不用存 currentState）
-- **退回樓層入口** = 丟掉指令流
+- **退回樓層入口** = 丟掉指令流（免費，D7 外層）
 
-指令戰前的自動存檔就是「寫一個快照」，不是特例邏輯。指令戰**內部**的回合不走 `IGameCommand`（D7：戰鬥內不可 undo）——整場戰鬥的結果打包成**一個** command 進指令流。
+一場碰撞戰 = **一個** command（`ResolveCollision` 的結果打包進指令流），所以回溯一步就是回溯一整場戰鬥，語義乾淨。
 
 檔案大小可控：`GameState` 是純數值與 flag，一層幾 KB；指令流在寫入新樓層快照時清空，不會無限長。**不要**把樓層地圖本身存進去——那是靜態資料，從 ScriptableObject 讀。
 
-### 3. 兩種戰鬥不共用場景
+### 3. 戰鬥不載入場景
 
-**不要為戰鬥載入場景。** 碰撞戰直接在地圖上播表現（數字跳動 + 震動），指令戰用 overlay UI 蓋在地圖上。
+**整個遊戲只有一個 gameplay 場景。** 碰撞戰直接在地圖上播表現（數字跳動 + 震動回饋），Boss 戰頂多加一段短演出（鏡頭推近、特性圖示展示），仍在同一場景。
 
-理由：場景載入在中低階 Android 上是 0.5–2 秒。魔塔類型一場遊戲會發生數百次戰鬥，載入一次就毀掉節奏。Additive scene 也不划算——指令戰只佔 5%，不值得為它建整套場景管理。
+理由：場景載入在中低階 Android 上是 0.5–2 秒。魔塔類型一場遊戲會發生數百次戰鬥，載入一次就毀掉節奏。D1 砍掉指令戰後，這條規則沒有任何例外了。
 
 ---
 
@@ -168,13 +163,13 @@ var game = new GameSession(resolver, saveService, monsters);
 
 順序不是隨便排的——每一步都是為了讓下一步能被驗證：
 
-1. **`Core/Grid` + `Core/Combat` + `IGameCommand`（純 C#，含測試）** — 沒有畫面，但規則對了。指令模式必須在這一步就進來（D7），不能事後補
-2. **`Simulation` + 可達性驗證器** — 現在你能自動驗證樓層可不可解。驗證器的合約是「抵達 Boss 時資源 ≥ 門檻」，不是「打得贏 Boss」（見 CONTEXT.md 詞條）
-3. **`FloorExploration` 最小可玩版** — 一層地圖、移動、碰撞戰、鑰匙門
-4. **`Bestiary` + 傷害預覽 + Undo 按鈕** — 到這裡遊戲才真的「可玩」。Undo 的 UI 很小，但它背後的指令流在第 1 步已經就緒
-5. **存檔：樓層快照 + 指令流序列化**
-6. **關卡編輯器** — 在手工做超過 5 層之前一定要有
+1. **`Core/Grid` + `Core/Combat`（含 DamageFormula、怪物特性）+ `IGameCommand`（純 C#，含測試）** — 沒有畫面，但規則對了。指令模式必須在這一步就進來（D7），不能事後補
+2. **`Simulation` + 可達性驗證器** — 現在你能自動驗證樓層可不可解。D1 純碰撞戰 + D11 封閉經濟下，驗證器覆蓋全塔含 Boss。先做**每層獨立驗證**（入口預算 → 出口預算），全塔只做資源總量守恆檢查——不要一開始就挑戰全塔搜索，那是狀態空間爆炸的地方
+3. **`FloorExploration` 最小可玩版** — 一層地圖、方向鍵移動、碰撞戰、鑰匙門
+4. **`Bestiary` + 傷害預覽 + 回溯道具** — 到這裡遊戲才真的「可玩」。回溯的 UI 很小，但它背後的指令流在第 1 步已經就緒
+5. **存檔：樓層快照 + 指令流序列化 + 祭壇**
+6. **關卡編輯器** — 在手工做超過 5 層之前一定要有。一人開發（D12）下，它的產能直接決定 D6 的 25–30 層是否成立
 7. **10–15 層內容 + 難度弧線**（MVP＝D3；出貨版 25–30 層＝D6，在編輯器成熟後才擴產）
-8. **指令戰（`CommandBattleEngine` + Boss 壓力測試）** — 最後才做，核心樂趣的驗證不需要它
 
-第 8 項擺最後是刻意的：如果前 7 步做完發現碰撞戰本身就夠好玩，你可以認真考慮把指令戰砍掉，省下那 +50% 的時程。
+第 7 步完成後有一個**複審點**：碰撞戰魔塔本身夠不夠好玩、編輯器產能撐不撐得起 25–30 層。D6 的規模與美術方案（CONTEXT.md 待決）都在這裡拍板。
+

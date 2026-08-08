@@ -8,7 +8,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Current state: design docs complete and audited; art complete (38/38 sprites in `art/`); pipeline CSVs live in `data/`; Unity project scaffolded for **6000.0.37f1** with a working `Tower.Core` (all 13 acceptance vectors green). The build order in `docs/architecture.md` tracks what comes next.
 
-**The code**: game logic lives in `Assets/_Project/Core/` under the `Tower.Core` asmdef with `noEngineReferences: true` — it must never reference `UnityEngine`. NUnit tests are in `Assets/_Project/Core/Tests/`. Because Core is engine-free, you can compile and verify it without opening Unity: a throwaway dotnet console project that globs the Core sources (see the scratchpad pattern from the step-1 commit) runs the acceptance vectors in seconds. Once Unity has opened the project, `*.meta` files MUST be committed — never gitignore them.
+**The code**: game logic lives in `Assets/_Project/Core/` under the `Tower.Core` asmdef with `noEngineReferences: true` — it must never reference `UnityEngine`. Stats come from `data/*.csv` via `Core/Data/Catalog`; floors declare only ids, never numbers, so the two can't drift. The Unity layer in `Assets/_Project/Game/` is split by job: `GamePreviewBootstrap` (rules + input), `ViewFactory` (sprites/text/plates), `HudView` (the three-column HUD), `TextBank`, `AudioBank`, `SpriteMap`.
+
+**Verifying** — run this after any Core change, it takes seconds and needs no Unity:
+
+```
+dotnet run --project tools/CoreVerify
+```
+
+For the Unity side, `-batchmode -quit` **exits before compilation finishes** and its log will look clean even when the build is broken — that false negative has bitten twice. Verify instead by deleting `Library/ScriptAssemblies/Tower.Game.dll`, running batchmode *without* `-quit`, and checking the dll was regenerated.
+
+Once Unity has opened the project, `*.meta` files MUST be committed — never gitignore them. Art and audio are **not** tracked (see `.gitignore`); rebuild them from the pack per `docs/art-assets.md`.
 
 Design docs are written in Traditional Chinese; the user works in Traditional Chinese. Player-visible strings never appear in code — they live in `data/ui-strings.csv` and `data/dialogues.csv`.
 

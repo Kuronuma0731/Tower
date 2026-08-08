@@ -21,3 +21,7 @@ UserSettings/
 art/
 Assets/StreamingAssets/sprites/
 Assets/StreamingAssets/audio/
+
+# dotnet 驗證器的建置產物
+tools/CoreVerify/bin/
+tools/CoreVerify/obj/

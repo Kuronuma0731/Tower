@@ -318,3 +318,14 @@ YES / NO
 Explain why.
 
 Be brutally honest.
+
+---
+
+## After the Report: Interrogate, Don't Just List
+
+Any finding whose fix requires a **user decision** (not a mere documentation patch) must be put to the user as a question — **one at a time**, using AskUserQuestion, after the report is delivered:
+
+- Each question carries 2–4 concrete options, the cost of each option, and your recommendation.
+- Wait for the answer before asking the next question. The user thinks between questions; do not batch.
+- Once a decision lands: update `CONTEXT.md` first (new D-decision or amended one, with rationale and accepted costs, plus the 變更紀錄), then propagate downstream in the same batch.
+- Findings that are pure work items (write a doc, build a table) are not questions — list them as actions and proceed when told.

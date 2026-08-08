@@ -62,7 +62,7 @@ namespace Tower.Core.Floors
                 new FloorEntity("F01_m04", EntityType.Monster, new GridPos(10, 9), @ref: "skel_gray"),
             };
 
-            return new FloorDefinition("F01", FloorGrid.Parse(rows), entities);
+            return new FloorDefinition("F01", FloorGrid.Parse(rows), entities, nameZh: "塔門之下");
         }
 
         /// <summary>1F 怪物數值（鏡像 data/monsters.csv）。</summary>

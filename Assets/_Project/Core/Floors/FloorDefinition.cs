@@ -11,14 +11,19 @@ namespace Tower.Core.Floors
     public sealed class FloorDefinition
     {
         public string Id { get; }
+
+        /// <summary>樓層顯示名（floor JSON 的 name_zh）。</summary>
+        public string NameZh { get; }
+
         public FloorGrid Grid { get; }
         public IReadOnlyList<FloorEntity> Entities { get; }
 
         private readonly Dictionary<GridPos, FloorEntity> _byPos = new Dictionary<GridPos, FloorEntity>();
 
-        public FloorDefinition(string id, FloorGrid grid, IReadOnlyList<FloorEntity> entities)
+        public FloorDefinition(string id, FloorGrid grid, IReadOnlyList<FloorEntity> entities, string nameZh = "")
         {
             Id = id;
+            NameZh = nameZh;
             Grid = grid ?? throw new ArgumentNullException(nameof(grid));
             Entities = entities ?? throw new ArgumentNullException(nameof(entities));
 

@@ -42,6 +42,7 @@ namespace Tower.Game
         private Font _font;
 
         private TextMesh _hudText;
+        private TextMesh _hudFloorText;
         private TextMesh _toastText;
         private float _toastUntil;
         private GameObject _dialogueBox;
@@ -75,6 +76,8 @@ namespace Tower.Game
             BuildHud();
             RefreshPreviews();
             RefreshHud();
+
+            Toast($"{FloorLabel()}　{_floor.NameZh}", 2.8f); // 進樓層報幕
         }
 
         private static Font LoadCjkFont()
@@ -171,7 +174,9 @@ namespace Tower.Game
         {
             // 數值列：壓在頂排牆上（y = +6）——棋盤看得見它就看得見
             MakeBackplate(new Vector3(0, 6f, 0), 13f, 1.04f, 0.78f, 90, "hud_bg");
-            _hudText = MakeText(null, new Vector3(0, 6f, 0), 0.5f, TextAnchor.MiddleCenter, 100);
+            _hudFloorText = MakeText(null, new Vector3(-6.28f, 6f, 0), 0.5f, TextAnchor.MiddleLeft, 100);
+            _hudFloorText.color = new Color(0.55f, 0.85f, 1f);
+            _hudText = MakeText(null, new Vector3(0.35f, 6f, 0), 0.45f, TextAnchor.MiddleCenter, 100);
 
             // 提示：棋盤中上（有訊息才出現）
             _toastText = MakeText(null, new Vector3(0, 2.5f, 0), 0.55f, TextAnchor.MiddleCenter, 100);
@@ -412,8 +417,15 @@ namespace Tower.Game
 
         // ---- UI 更新 ----
 
+        private string FloorLabel()
+        {
+            int n = int.Parse(_state.CurrentFloor.Substring(1));
+            return S("msg_floor_enter").Replace("{n}", n.ToString());
+        }
+
         private void RefreshHud()
         {
+            _hudFloorText.text = FloorLabel();
             _hudText.text =
                 $"{S("lbl_hp")} {_state.Hp}　{S("lbl_atk")} {_state.Atk}　{S("lbl_def")} {_state.Def}　" +
                 $"{S("lbl_gold")} {_state.Gold}　{S("lbl_exp")} {_state.Exp}　" +

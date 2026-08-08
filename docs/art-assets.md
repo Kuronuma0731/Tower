@@ -9,7 +9,7 @@
 | 尺寸 | **1024×1024 源檔**（遊戲內縮放；13 欄直向下每格實際約 80px，源檔留高解析度給圖鑑放大用） |
 | 格式 | PNG，**透明背景**（生成器做不到透明就用純白底，之後批次去背） |
 | 構圖 | 單一主體、置中、佔畫面約 80%，**正面朝向鏡頭**（俯視格子遊戲的標準朝向） |
-| 風格一致性 | **所有圖共用同一段風格前綴詞**——先寫定一句（例：`pixel art, 32-bit, clean outline, vibrant colors` 或 `hand-painted fantasy, soft shading`），之後每張 prompt 都以它開頭。風格選哪種是你的美術決定，**一致性比風格本身重要十倍** |
+| 風格一致性 | **已定案（2026-08-08）：手繪厚塗風**——前綴詞：`hand-painted fantasy style, textured brushwork, bold outlines, vibrant colors`，並在每次 prompt 明示 `NOT pixel art`。怪物 15 張與圖示拼貼均為此風格，之後所有素材必須一致；ChatGPT 曾自行漂移成像素風，發現即退件重生 |
 | 禁止 | 圖內不要有文字、浮水印、外框、陰影落在透明區之外 |
 
 建議的 prompt 骨架：`〔風格前綴〕, 〔主體描述〕, single character, front facing, centered, plain background, no text`

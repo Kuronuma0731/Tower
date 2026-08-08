@@ -354,21 +354,36 @@ namespace Tower.Game
                 return;
             }
 
-            // 樓層切換：G＝展示層、F＝回 1F
-            if (Input.GetKeyDown(KeyCode.G) && _state.CurrentFloor != "F00") { LoadFloor("F00"); return; }
+            // G＝展示層開/關（再按一次回 1F）、F＝回 1F
+            if (Input.GetKeyDown(KeyCode.G)) { LoadFloor(_state.CurrentFloor == "F00" ? "F01" : "F00"); return; }
             if (Input.GetKeyDown(KeyCode.F) && _state.CurrentFloor != "F01") { LoadFloor("F01"); return; }
 
-            var dir = ReadDirection();
-            if (dir == null) return;
-            TryStep(dir.Value.delta, dir.Value.facing);
+            // 按住連走：首步立即，按住 0.28s 後每 0.12s 重複（遊測回饋：長按要能連續移動）
+            var held = ReadHeldDirection();
+            if (held == null) { _heldDelta = null; return; }
+            var (delta, facing) = held.Value;
+            if (_heldDelta == null || _heldDelta.Value != delta)
+            {
+                _heldDelta = delta;
+                TryStep(delta, facing);
+                _nextRepeatAt = Time.time + 0.28f;
+            }
+            else if (Time.time >= _nextRepeatAt)
+            {
+                TryStep(delta, facing);
+                _nextRepeatAt = Time.time + 0.12f;
+            }
         }
 
-        private ((int dx, int dy) delta, string facing)? ReadDirection()
+        private (int dx, int dy)? _heldDelta;
+        private float _nextRepeatAt;
+
+        private ((int dx, int dy) delta, string facing)? ReadHeldDirection()
         {
-            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W)) return ((0, -1), "up");
-            if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S)) return ((0, 1), "down");
-            if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A)) return ((-1, 0), "side_l");
-            if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D)) return ((1, 0), "side_r");
+            if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.W)) return ((0, -1), "up");
+            if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.S)) return ((0, 1), "down");
+            if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.A)) return ((-1, 0), "side_l");
+            if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.D)) return ((1, 0), "side_r");
             return null;
         }
 

@@ -45,6 +45,8 @@ namespace Tower.Game
             ["hourglass"] = "item_hourglass",
         };
 
+        // 地形配色（懷舊配色 A）：地板＝灰石磚 `Wall_r0_c3`、牆＝紫藍石 `地形_r0_c3`
+        // ——刻意複製原版的紫框灰地。換配色只要換這兩個檔，見 docs/art-assets.md
         public const string TileFloor = "tile_floor";
         public const string TileWall = "tile_wall";
         public const string Shop = "ent_shop";

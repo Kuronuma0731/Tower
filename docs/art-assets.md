@@ -1,148 +1,84 @@
-# 美術素材清單 — MVP 1F–10F（生圖規格）
+# 美術素材 — 像素風（D14）
 
-給素材蒐集/AI 生圖用的完整清單。**檔名 = 表裡的 sprite id**（`.png`），跟 `data-schema.md` 的 `sprite` 欄位一一對應——圖生好、照檔名放進來，管線直接吃。
+**素材不進版控**（第三方授權品，`.gitignore` 已排除 `art/`）。本文件記錄**來源、切法、對應表**，任何人照著就能重建。
 
-## 全域規格（每一張都適用）
+## 來源與重建
 
-| 項目 | 規格 |
+本機來源：`G:\圖片放置\魔塔`（策展層 86 檔＋`素材整包/` 完整 RPG Maker 素材庫＋`bgm/` 41 個音效）
+
+```
+powershell -File tools/slice-sheets.ps1 -SourceDir "G:\圖片放置\魔塔" -OutputDir art\pixel\raw
+```
+
+策展層檔案一律 **128×128 = 4×4 的 32px 格**（列＝變體、行＝動畫幀）。切片產出 1454 格，命名 `<表名>_r<列>_c<行>.png`。
+
+再依下方對照表複製到 `art/pixel/sprites/`，並同步到 `Assets/StreamingAssets/sprites/`。
+
+## 換素材的唯一接觸點
+
+`Assets/_Project/Game/SpriteMap.cs` 是**全遊戲唯一知道檔名的地方**。遊戲邏輯只講概念 id；換整套素材＝改那一個檔 + 換 `sprites/` 內容，邏輯零改動。這是 D14 授權風險的緩解設計。
+
+## 對照表
+
+### 地形（懷舊配色 A — 複製原版的紫框灰地）
+
+| sprite id | 切片 | 說明 |
+|---|---|---|
+| `tile_floor` | `Wall_r0_c3` | 灰石磚地板 |
+| `tile_wall` | `地形_r0_c3` | 紫藍石牆——原版外框的顏色 |
+
+其他配色候選（渲染比對過）：紫框淡紫地 `Wall_r0_c1`／灰地深灰牆 `IronFloor_r2_c0`／淡紫地棕牆 `地形_r0_c4`＋`地形_r0_c0`。
+
+### 門與樓梯
+
+| sprite id | 切片 |
 |---|---|
-| 尺寸 | **1024×1024 源檔**（遊戲內縮放；13 欄直向下每格實際約 80px，源檔留高解析度給圖鑑放大用） |
-| 格式 | PNG，**透明背景**（生成器做不到透明就用純白底，之後批次去背） |
-| 構圖 | 單一主體、置中、佔畫面約 80%，**正面朝向鏡頭**（俯視格子遊戲的標準朝向） |
-| 風格一致性 | **已定案（2026-08-08）：手繪厚塗風**——前綴詞：`hand-painted fantasy style, textured brushwork, bold outlines, vibrant colors`，並在每次 prompt 明示 `NOT pixel art`。怪物 15 張與圖示拼貼均為此風格，之後所有素材必須一致；ChatGPT 曾自行漂移成像素風，發現即退件重生 |
-| 禁止 | 圖內不要有文字、浮水印、外框、陰影落在透明區之外 |
+| `ent_door_y` / `ent_door_b` / `ent_door_r` | `Door_r0_c0` / `Door_r0_c1` / `Door_r1_c0` |
+| `ent_stairs_up` / `ent_stairs_down` | `Statir_r0_c0` / `Statir_r0_c3` |
 
-建議的 prompt 骨架：`〔風格前綴〕, 〔主體描述〕, single character, front facing, centered, plain background, no text`
+### 道具
 
----
+| sprite id | 切片 |
+|---|---|
+| `item_key_y` / `item_key_b` / `item_key_r` | `Key_r0_c0` / `Key_r1_c1` / `Key_r0_c2` |
+| `item_potion_s` / `item_potion_l` | `Potion_r0_c0` / `Potion_r2_c0` |
+| `item_gem_atk` / `item_gem_def` | `MagicGems_r0_c0` / `MagicGems_r0_c1` |
+| `item_hourglass` | `Constant _r1_c0` |
 
-## 1. 怪物（14 張）— 同時定案 1F–10F 怪物名單
+### 怪物（15 種，皆取 `c0` 靜態幀；`c1`–`c3` 為待用動畫幀）
 
-史萊姆三色是同型換色（分開生三張即可，prompt 只改顏色）。守關怪兩張畫大隻一點、細節多一點——牠們要撐 Boss 演出的鏡頭推近。
-
-| sprite id | 名稱 | 樓層 | 特性 | 生成描述（接在風格前綴後） |
+| sprite id | 切片 | | sprite id | 切片 |
 |---|---|---|---|---|
-| `mon_slime_g` | 綠史萊姆 | 1F | — | small green slime blob, cute but menacing, glossy |
-| `mon_bat_cave` | 洞穴蝙蝠 | 1F | — | small purple cave bat, spread wings, fangs |
-| `mon_skel_gray` | 小骷髏 | 1F | — | small gray skeleton warrior, rusty short sword |
-| `mon_slime_r` | 紅史萊姆 | 2F | — | small red slime blob, angry expression, glossy |
-| `mon_rat_giant` | 大老鼠 | 2F | — | giant brown rat, hunched, long tail, sharp teeth |
-| `mon_slime_b` | 藍史萊姆 | 3F | — | small blue slime blob, calm expression, glossy |
-| `mon_bandit` | 強盜 | 3F | — | masked human bandit, leather armor, dagger, coin pouch |
-| `mon_skel_soldier` | 骷髏兵 | 4F | — | armored skeleton soldier, shield and sword, battle stance |
-| `mon_ghost_pale` | 蒼白幽魂 | 4F | — | pale floating ghost, translucent, wispy trails |
-| `mon_wasp_striker` | 刺蜂 | 5F | 先攻 | giant hornet, needle stinger forward, aggressive dive pose |
-| `mon_duelist_twin` | 雙刀鬥士 | 6F | 連擊 | lean humanoid duelist with two curved blades, crossed |
-| `mon_mage_void` | 虛空法師 | 7F | 魔攻 | hooded mage, dark purple void energy between hands |
-| `boss_gate_01` | 門衛雙足獸 | 8F | 先攻+連擊（守關） | massive bipedal beast guarding a gate, heavy claws, battle scars, imposing |
-| `mon_vampbat_king` | 吸血蝠王 | 9F | 吸血 | large crimson vampire bat, blood-red eyes, regal crown-like ears |
-| `boss_warden_10` | 塔層守衛 | 10F | 佔位（守關） | towering stone-and-metal construct warden, glowing core, ancient runes |
+| `mon_slime_g` | `Slime_r0_c0` | | `mon_duelist_twin` | `Swordsman_r0_c0` |
+| `mon_slime_r` | `Slime_r1_c0` | | `mon_mage_void` | `Majician_r0_c0` |
+| `mon_slime_b` | `Slime_r2_c0` | | `mon_ghost_pale` | `Mask_r0_c0` |
+| `mon_bat_cave` | `Bat_r0_c0` | | `mon_vampbat_king` | `Bat_r2_c0` |
+| `mon_wasp_striker` | `Bat_r1_c0` | | `boss_gate_01` | `King_r0_c0` |
+| `mon_skel_gray` | `skeleton_r0_c0` | | `boss_warden_10` | `Guard_r0_c0` |
+| `mon_skel_soldier` | `skeleton_r1_c0` | | | |
+| `mon_rat_giant` | `Zombie_r0_c0` | | | |
+| `mon_bandit` | `Kinght_r0_c0` | | | |
 
-> 名單即怪物 roster 定案：**15 種**（含兩隻守關怪）。每層 2–3 種可用（含前層續用），數值之後在 monsters.csv 錨定初始值 10/10/550 來調。
+### 互動點與主角
 
-## 2. 道具（8 張）
-
-| sprite id | 名稱 | 生成描述 |
-|---|---|---|
-| `item_key_y` | 黃鑰匙 | simple brass yellow key |
-| `item_key_b` | 藍鑰匙 | ornate blue crystal key |
-| `item_key_r` | 紅鑰匙 | elaborate red ruby key, regal |
-| `item_potion_s` | 小血瓶 | small round red potion bottle |
-| `item_potion_l` | 大血瓶 | large ornate red potion flask |
-| `item_gem_atk` | 攻擊寶石 | red sword-shaped gemstone, glowing |
-| `item_gem_def` | 防禦寶石 | blue shield-shaped gemstone, glowing |
-| `item_hourglass` | 沙漏 | magical golden hourglass, swirling time sand |
-
-## 3. 地形與結構（9 張）
-
-| sprite id | 名稱 | 生成描述 |
-|---|---|---|
-| `tile_floor` | 地板 | stone dungeon floor tile, seamless, top-down |
-| `tile_wall` | 牆 | stone brick wall block, top-down dungeon |
-| `tile_oneway` | 單向箭頭 | glowing floor arrow marker（**一張即可**，遊戲內旋轉出四方向） |
-| `ent_door_y` | 黃門 | closed yellow wooden dungeon door with lock |
-| `ent_door_b` | 藍門 | closed blue reinforced dungeon door with lock |
-| `ent_door_r` | 紅門 | closed grand red door, ornate ruby lock |
-| `ent_stairs_up` | 上樓梯 | stone stairs going up, top-down view |
-| `ent_stairs_down` | 下樓梯 | stone stairs going down, top-down view |
-| `ent_switch` | 開關 | floor lever switch, metal base |
-
-地板與牆是**鋪滿格子的方塊**（不留透明邊），其他照全域規格置中留透明。
-
-## 4. 互動點與人物（6 張）
-
-| sprite id | 名稱 | 生成描述 |
-|---|---|---|
-| `ent_shop` | 商人 | hooded merchant behind small stall, coins and wares |
-| `ent_altar` | 祭壇 | glowing stone altar, floating runes |
-| `npc_guard_old` | 老守衛 | elderly tower guard NPC, lantern, weathered armor（8F 對話用） |
-| `hero_down` | 主角（面向下） | young adventurer, light armor, facing viewer |
-| `hero_up` | 主角（背面） | same adventurer, seen from behind |
-| `hero_side` | 主角（側面） | same adventurer, side profile（**一張即可**，遊戲內鏡像出左右） |
-
-主角三張務必**同一次生成流程/同一 seed 風格**，不然走路轉向會像換了人。
-
----
-
-## 合計與優先序
-
-**37 張**。生成順序建議：
-
-1. **先生 1 張測試**（`mon_slime_g`）→ 確定風格前綴詞 → 這句話就是全塔的美術憲法
-2. 主角 3 張 + 1F 三隻怪 + 地板/牆/黃門/黃鑰匙/樓梯 → **湊齊第 3 步「最小可玩版」的全部素材**
-3. 其餘照樓層順序補
-
-生好的圖先集中放一個資料夾（檔名照表），Unity 專案建好後放 `Assets/_Project/Art/`。
-
-## ChatGPT 生圖流程
-
-1. **開一個專用對話，37 張全部在同一串生**——GPT-4o 在同對話內維持風格最穩，可以說「跟上面同風格」；換對話 = 風格重來。
-2. 開場貼這段合約（風格行可換，換完用史萊姆調到滿意，之後不准動）：
-
-   ```
-   我在做一款魔塔類手機遊戲，需要一批遊戲素材圖。之後每次我給你一個主體描述，請照以下規則產圖：
-   - 一次產「一張」正方形圖（1024×1024）
-   - 透明背景 PNG（務必透明，不要任何場景或地面陰影）
-   - 單一主體、置中、佔畫面約 80%、正面朝向鏡頭
-   - 圖中不得有任何文字、浮水印、外框
-   - 風格：pixel art, 32-bit, clean outline, vibrant colors
-   - 風格一旦確立，後續所有圖保持完全一致，除非我明確要求更改
-
-   第一張（測試用）：small green slime blob, cute but menacing, glossy
-   ```
-
-3. 之後逐張餵表裡的英文描述，一次一張：「下一張：〔描述〕」。**不要**一張圖放多個主體。
-4. 特例：主角三張連續生並強調「**同一個角色**」；地板/牆加 `seamless tileable texture, fills the entire square, top-down`；守關怪加 `more detailed, imposing, boss-level presence`。
-5. 每張四格檢查：背景真透明／置中無裁切／無文字／風格沒漂。不合格叫它重生並指出問題。**下載原檔，不要截圖**（截圖丟透明通道）。下載後改名為表中的 sprite id。
-
-## 收到素材後的處理流程
-
-```
-art/source/<類別>/     ← 生圖工具原檔，永不修改
-art/sprites/<類別>/    ← 處理後、給 Unity 用的檔案
-```
-
-生圖工具傾向把主體貼在大畫布上且偏離中心（實測偏移可達 44px）。收到一批就跑一次：
-
-```
-pwsh tools/center-sprites.ps1 art/source/monsters art/sprites/monsters
-```
-
-它裁到 alpha 邊界框、置中、輸出正方形（外留 10%），讓所有素材共用同一個 pivot 對格。原檔不動，重跑安全。
-
-**驗收要點**：檔名 = sprite id、1024×1024 交付、真透明（角落 alpha=0）、**主體實際佔畫布 ≥ 60%**。最後一項是最容易被忽略的——若生圖工具是從拼貼圖裁貼而非全解析度重畫，主體可能只有 250px，遊戲內格子（直向 1080÷13 ≈ 83px）夠用，但**守關戰的鏡頭推近會糊**。守關怪務必要求全幅重畫。
-
-### 目前狀態
-
-| 類別 | 進度 |
+| sprite id | 切片 |
 |---|---|
-| 怪物 15 張 | 🔶 13/15。**2026-08-08 遊測揪出 zip 內檔名與內容大規模錯配（10/15 張）**，已按實際內容全面改名修正。盤點後缺口：`mon_ghost_pale`（幽魂）與 `mon_mage_void`（虛空法師）**從未生成**（被兩張重複的藍史萊姆/蝠魔頂替，已隔離於 `art/pending-regen/`）。另 `mon_skel_soldier`、`mon_skel_gray` 等數張頂部有燒入殘字，83px 下不明顯，後續批次重生。主體僅約 250px 的舊帳與守關怪全幅重生照舊 |
-| 道具 8 張 | ✅ 已入庫並置中（主體約 170–250px，道具無推近需求，夠用） |
-| 地形結構 9 張 | ✅ 已入庫。`tile_floor` / `tile_wall` 滿版且可無縫拼接，未經置中直接使用；其餘 7 張已置中 |
-| 互動與人物 6 張 | ✅ 全部入庫。`hero_down`/`hero_up`/`npc_guard_old` 走白底交付 + `tools/dewhite.ps1` 本地去背（邊界泛洪，主體內部的白不受影響）——**透明背景問題多時，白底交付是更穩的路徑** |
+| `ent_shop` / `ent_altar` / `ent_switch` | `Merchat_r0_c0` / `MagicGems_r3_c1` / `Constant _r0_c0` |
+| `npc_guard_old` | `Guard_r1_c0` |
+| `hero_d{0-3}_f{0-3}` | `hero_r{0-3}_c{0-3}` |
 
-**38/38 齊裝**（2026-08-08）。唯一欠帳：兩隻守關怪的全幅高解析度重生版（現用 ~290px 版，僅鏡頭推近時會糊，不擋開發）。
+**主角列序**（RPG Maker 慣例）：0 下／1 左／2 右／3 上，各 4 幀行走動畫。
 
-## 待補（現在不用生）
+## 渲染要求（不可省）
 
-戰鬥數字跳動、UI 按鈕/框、樓層地圖圖標、App icon、商店頁截圖——等可玩版出來再說。
+像素素材必須 **Point filter + Clamp + PPU 32**（一格＝一世界單位），否則整套糊掉。已寫死在 `GamePreviewBootstrap.GetSprite`。
+
+## 未做
+
+- 音效／BGM：`bgm/` 有 41 個現成檔，尚未接入
+- 怪物待機動畫：每隻的 `c1`–`c3` 幀已切好，尚未接
+- 舊的手繪厚塗素材（38 張）：D14 前的路線，已停用
+
+## 授權
+
+**上架前必須確認商用授權範圍**（見 `CONTEXT.md` 待決事項）。若不可商用，換素材成本已被 `SpriteMap` 壓到最低。

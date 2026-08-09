@@ -51,6 +51,7 @@ namespace Tower.Core.Save
         public int KeysBlue { get; set; }
         public int KeysRed { get; set; }
         public int Hourglasses { get; set; }
+        public int PoisonPerStep { get; set; }
         public int X { get; set; }
         public int Y { get; set; }
         public List<string> Consumed { get; set; } = new();
@@ -63,6 +64,7 @@ namespace Tower.Core.Save
             Atk = s.Atk, Def = s.Def, Hp = s.Hp, Gold = s.Gold, Exp = s.Exp,
             KeysYellow = s.KeysYellow, KeysBlue = s.KeysBlue, KeysRed = s.KeysRed,
             Hourglasses = s.Hourglasses,
+            PoisonPerStep = s.PoisonPerStep,
             X = s.Position.X, Y = s.Position.Y,
             Consumed = s.ConsumedEids.OrderBy(e => e).ToList(),   // 排序 → 存檔可 diff
             SeenMonsters = s.SeenMonsters.OrderBy(e => e).ToList(),
@@ -77,6 +79,7 @@ namespace Tower.Core.Save
                 Atk = Atk, Def = Def, Hp = Hp, Gold = Gold, Exp = Exp,
                 KeysYellow = KeysYellow, KeysBlue = KeysBlue, KeysRed = KeysRed,
                 Hourglasses = Hourglasses,
+                PoisonPerStep = PoisonPerStep,
                 CurrentFloor = floorId,
                 Position = new GridPos(X, Y),
             };

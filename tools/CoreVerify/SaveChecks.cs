@@ -1,3 +1,4 @@
+using Tower.Core.Simulation;
 using System.Collections.Generic;
 using System;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace Tower.Verify
         {
             Console.WriteLine("== 存檔（D7）==");
 
+            PoisonMakesWalkingCost(catalog, check);
             ReviveIsTwoKills(catalog, check);
             SwitchUndoIsPrecise(check);
             BestiaryIsKnowledgeNotResource(catalog, check);
@@ -28,6 +30,112 @@ namespace Tower.Verify
             UndoIsExact(catalog, check);
             SingleTimeline(check);
             FloorEntryClearsStream(check);
+        }
+
+        /// <summary>
+        /// 中毒（D17）：**走路第一次有代價**。三項已接受的代價各驗一條——
+        /// 毒傷按步扣、解毒藥解除、毒在 1 血止住（D13：遊戲沒有死亡）。
+        /// </summary>
+        private static void PoisonMakesWalkingCost(Catalog catalog, Action<string, bool> check)
+        {
+            var venom = catalog.Monsters["wasp_venom"];
+            check($"毒蜂帶毒特性，強度 {venom.TraitValue}/步",
+                venom.Traits.HasFlag(TraitSet.Poison) && venom.TraitValue > 0);
+
+            var save = new SaveGame(new GameState { Atk = 20, Def = 10, Hp = 1000 });
+            save.EnterFloor("DEV_SETTINGS");
+            save.Apply(new CollisionBattleCommand("DEV_m10",
+                CombatResolver.ResolveCollision(save.State.CombatStats, venom), venom));
+
+            check($"戰後中毒（{save.State.PoisonPerStep}/步）", save.State.PoisonPerStep == venom.TraitValue);
+
+            int before = save.State.Hp;
+            for (int i = 0; i < 5; i++)
+                save.Apply(new MoveCommand(new GridPos(1, i + 1), new GridPos(1, i + 2)));
+
+            check($"走五步扣 {before - save.State.Hp} 血（= 5 × {venom.TraitValue}）",
+                before - save.State.Hp == 5 * venom.TraitValue);
+
+            // 解毒藥：撿起即解，且回溯要能還原回中毒狀態
+            save.Apply(new PickupItemCommand("DEV_i09", catalog.Items["antidote"]));
+            check("解毒藥解除中毒", save.State.PoisonPerStep == 0);
+
+            int afterCure = save.State.Hp;
+            save.Apply(new MoveCommand(new GridPos(1, 7), new GridPos(1, 8)));
+            check("解毒後走路不再扣血", save.State.Hp == afterCure);
+
+            save.UndoOne();
+            save.UndoOne();
+            check("回溯解毒藥 → 回到中毒狀態", save.State.PoisonPerStep == venom.TraitValue);
+
+            // D13：毒不能致死，止在 1 血
+            var dying = new SaveGame(new GameState { Atk = 20, Def = 10, Hp = 3, PoisonPerStep = 10 });
+            dying.EnterFloor("DEV_SETTINGS");
+            for (int i = 0; i < 5; i++)
+                dying.Apply(new MoveCommand(new GridPos(1, i + 1), new GridPos(1, i + 2)));
+            check($"D13：毒傷止在 1 血（走五步後 Hp={dying.State.Hp}，遊戲沒有死亡系統）",
+                dying.State.Hp == 1);
+
+            while (dying.UndoOne()) { }
+            check("回溯精確還原止血那幾步（不是每步都退 10）", dying.State.Hp == 3);
+
+            var loaded = SaveGame.FromData(SaveData.FromJson(save.ToData().ToJson()));
+            check($"中毒狀態進得了存檔（{loaded.State.PoisonPerStep}/步）",
+                loaded.State.PoisonPerStep == save.State.PoisonPerStep
+                && loaded.State.Hp == save.State.Hp);
+
+            SolverChargesForWalking(catalog, check);
+        }
+
+        /// <summary>
+        /// D17 已接受代價的第 1 項：**驗證器必須把「走過去」算進成本**。
+        /// 一條走廊上的血瓶，沒中毒時是純賺；中毒時可能反而虧——
+        /// 若驗證器算不出這件事，D11 底下的生命線就對中毒層失效了。
+        /// </summary>
+        private static void SolverChargesForWalking(Catalog catalog, Action<string, bool> check)
+        {
+            // 直線走廊：入口在左端，出口在右端，中間沒有任何東西
+            var rows = new string[Tower.Core.Grid.FloorGrid.Size];
+            for (int y = 0; y < rows.Length; y++) rows[y] = new string('W', rows.Length);
+            rows[6] = "W...........W";
+
+            var floor = new FloorDefinition("DEV_CORRIDOR",
+                Tower.Core.Grid.FloorGrid.Parse(rows),
+                new[]
+                {
+                    new FloorEntity("C_s1", EntityType.Stairs, new GridPos(11, 6), stairs: StairsDirection.Up),
+                },
+                "走廊");
+
+            var clean = new FloorSolver(floor, catalog.Monsters, catalog.Items)
+                .Solve(new GameState { Atk = 10, Def = 10, Hp = 1000 }, new GridPos(1, 6), new GridPos(11, 6));
+            var poisoned = new FloorSolver(floor, catalog.Monsters, catalog.Items)
+                .Solve(new GameState { Atk = 10, Def = 10, Hp = 1000, PoisonPerStep = 5 },
+                       new GridPos(1, 6), new GridPos(11, 6));
+
+            // 走廊沒有分支動作，所以出場血量就是入場血量——這條驗的是「兩者都可解」，
+            // 真正的路徑收費在下面那條（有目標可走時才會計費）
+            check($"走廊：沒中毒 {clean.Status}／中毒 {poisoned.Status}（毒不該讓純走路的層變不可解）",
+                clean.Status == SolverStatus.Solvable && poisoned.Status == SolverStatus.Solvable);
+
+            // 遠處放一瓶血：沒中毒時是純賺，中毒時走過去的代價要被算進去
+            var withPotion = new FloorDefinition("DEV_CORRIDOR2",
+                Tower.Core.Grid.FloorGrid.Parse(rows),
+                new[]
+                {
+                    new FloorEntity("C_i1", EntityType.Item, new GridPos(9, 6), @ref: "potion_s"),
+                    new FloorEntity("C_s1", EntityType.Stairs, new GridPos(11, 6), stairs: StairsDirection.Up),
+                },
+                "走廊２");
+
+            var cleanRun = new FloorSolver(withPotion, catalog.Monsters, catalog.Items)
+                .Solve(new GameState { Atk = 10, Def = 10, Hp = 1000 }, new GridPos(1, 6), new GridPos(11, 6));
+            var poisonRun = new FloorSolver(withPotion, catalog.Monsters, catalog.Items)
+                .Solve(new GameState { Atk = 10, Def = 10, Hp = 1000, PoisonPerStep = 5 },
+                       new GridPos(1, 6), new GridPos(11, 6));
+
+            check($"中毒讓同一層更貴：沒中毒出場 {cleanRun.BestExitHp}、中毒出場 {poisonRun.BestExitHp}",
+                cleanRun.BestExitHp == 1200 && poisonRun.BestExitHp < cleanRun.BestExitHp);
         }
 
         /// <summary>

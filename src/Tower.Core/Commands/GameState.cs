@@ -44,6 +44,13 @@ namespace Tower.Core.Commands
         /// </summary>
         public readonly Dictionary<string, string> RevivedMonsters = new Dictionary<string, string>();
 
+        /// <summary>
+        /// 中毒強度：每走一步損血多少（D17）。0 = 沒中毒。
+        /// 多次中毒**取最大值而非累加**——累加會讓連續踩幾隻毒怪變成瞬間致命，
+        /// 而 D13 下毒不能致死，那只會做出一個看起來很兇但其實無害的機制。
+        /// </summary>
+        public int PoisonPerStep;
+
         public PlayerStats CombatStats => new PlayerStats(Atk, Def);
 
         /// <summary>樓層快照用的深拷貝。</summary>
@@ -55,6 +62,7 @@ namespace Tower.Core.Commands
                 Gold = Gold, Exp = Exp,
                 KeysYellow = KeysYellow, KeysBlue = KeysBlue, KeysRed = KeysRed,
                 Hourglasses = Hourglasses,
+                PoisonPerStep = PoisonPerStep,
                 CurrentFloor = CurrentFloor,
                 Position = Position,
             };

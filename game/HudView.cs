@@ -228,7 +228,13 @@ namespace Tower.Game
 
         public void SetStats(GameState s)
         {
-            _statValues[0].Text = s.Hp.ToString();
+            // 中毒必須看得見（D17）：血在走路時一直掉卻沒有任何提示，玩家只會以為是 bug。
+            // 同 D13 的視覺語言要求——規則的後果一定要在畫面上有對應。
+            _statValues[0].Text = s.PoisonPerStep > 0
+                ? $"{s.Hp}　({_text["lbl_poison"]} −{s.PoisonPerStep})"
+                : s.Hp.ToString();
+            _statValues[0].AddThemeColorOverride("font_color",
+                s.PoisonPerStep > 0 ? new Color(0.65f, 1f, 0.5f) : new Color(1f, 0.55f, 0.55f));
             _statValues[1].Text = s.Atk.ToString();
             _statValues[2].Text = s.Def.ToString();
             _statValues[3].Text = s.Gold.ToString();

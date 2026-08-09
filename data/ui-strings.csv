@@ -77,3 +77,6 @@ msg_bestiary_empty,還沒遇過任何怪物
 lbl_retreat,退回樓層入口
 msg_retreated,已退回本層入口（免費）
 msg_switch,機關啟動了
+lbl_poison,中毒
+msg_poisoned,中毒了——每走一步都會掉血
+msg_cured,毒解了

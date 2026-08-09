@@ -87,6 +87,7 @@ namespace Tower.Core.Data
                     "multi_hit" => TraitSet.MultiHit,
                     "pierce" => TraitSet.Pierce,
                     "lifesteal" => TraitSet.Lifesteal,
+            "poison" => TraitSet.Poison,
                     "adaptive_defense" => TraitSet.AdaptiveDefense,
                     "fixed_loss" => TraitSet.FixedLoss,
                     "weaken" => TraitSet.Weaken,
@@ -167,6 +168,7 @@ namespace Tower.Core.Data
             "potion" => ItemCategory.Potion,
             "gem" => ItemCategory.Gem,
             "undo" => ItemCategory.Undo,
+            "antidote" => ItemCategory.Antidote,
             var other => throw new ArgumentException($"未知的道具類別：'{other}'"),
         };
 

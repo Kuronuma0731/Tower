@@ -19,3 +19,4 @@ golem_adaptive,石像鬼,60,20,240,0,adaptive_defense,18,3,FALSE,mon_rat_giant,8
 knight_weaken,衰弱騎士,45,15,160,0,weaken,14,2,FALSE,mon_skel_soldier,2,,每挨一下，你的刀就鈍一分。拖越久越砍不動——這一戰要速戰。
 slime_king,史萊姆王,50,12,120,0,revive_as_weaker,12,2,FALSE,mon_slime_b,,slime_green,殺掉牠，牠會變小再站起來。你要付兩次錢。
 duel_scripted,決鬥者,0,0,1,0,fixed_loss,20,3,FALSE,mon_duelist_twin,150,,一場說好的決鬥：固定損 150，跟你的數值無關。堆再多也一樣。
+wasp_venom,毒蜂,38,6,70,0,poison,7,1,FALSE,mon_wasp_striker,4,,牠的毒讓你每走一步都掉血——這一戰之後，路線長度第一次變成成本。

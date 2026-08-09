@@ -83,6 +83,12 @@ namespace Tower.Core.Simulation
             public ulong Mask;
             public int Hp, Gold, Exp, Atk, Def;
             public int Ky, Kb, Kr;
+
+            /// <summary>
+            /// 中毒強度（D17）。0 = 沒中毒，走路免費——此時位置與路徑長度都不影響任何事，
+            /// 支配剪枝維持原本的強度。**只有中毒時**路徑才進入成本模型。
+            /// </summary>
+            public int Poison;
             public Dictionary<string, int> Counters; // 遞增價計數（altar:stat / shop:item）
 
             public static State From(GameState g)
@@ -92,6 +98,7 @@ namespace Tower.Core.Simulation
                     Mask = 0,
                     Hp = g.Hp, Gold = g.Gold, Exp = g.Exp, Atk = g.Atk, Def = g.Def,
                     Ky = g.KeysYellow, Kb = g.KeysBlue, Kr = g.KeysRed,
+                    Poison = g.PoisonPerStep,
                     Counters = new Dictionary<string, int>(g.PurchaseCounts),
                 };
                 return s;
@@ -104,6 +111,7 @@ namespace Tower.Core.Simulation
                     Mask = Mask,
                     Hp = Hp, Gold = Gold, Exp = Exp, Atk = Atk, Def = Def,
                     Ky = Ky, Kb = Kb, Kr = Kr,
+                    Poison = Poison,
                     Counters = new Dictionary<string, int>(Counters),
                 };
             }
@@ -113,11 +121,12 @@ namespace Tower.Core.Simulation
             /// <summary>支配比較向量：資源越大越好；遞增價計數越小越好（未來價更便宜）。</summary>
             public int[] DominanceVector(List<string> counterKeys)
             {
-                var v = new int[8 + counterKeys.Count];
+                var v = new int[9 + counterKeys.Count];
                 v[0] = Hp; v[1] = Gold; v[2] = Exp; v[3] = Atk; v[4] = Def;
                 v[5] = Ky; v[6] = Kb; v[7] = Kr;
+                v[8] = -Poison;   // 中毒是負資產：毒越輕越好
                 for (int i = 0; i < counterKeys.Count; i++)
-                    v[8 + i] = -CounterOf(counterKeys[i]);
+                    v[9 + i] = -CounterOf(counterKeys[i]);
                 return v;
             }
         }
@@ -171,6 +180,11 @@ namespace Tower.Core.Simulation
 
             if (Dominated(s)) return;
 
+            // 中毒（D17）：走路要花血，所以「走到目標旁邊」本身是成本。
+            // 用可達區內的**最短步數**——存在性搜索下取下界是正確的：
+            // 最短路走得通，繞遠路只會更貴，不會多解出東西。
+            var dist = s.Poison > 0 ? StepsFrom(s, startPos, reach) : null;
+
             // 枚舉分支動作
             foreach (var e in _consumable)
             {
@@ -178,10 +192,22 @@ namespace Tower.Core.Simulation
                 if ((s.Mask & (1UL << bit)) != 0) continue;
                 if (!AdjacentToReach(reach, e.Pos)) continue;
 
+                // 走過去的毒傷。D13：毒不致死，止在 1 血——所以這裡也不會把 HP 打到 0。
+                int travel = 0;
+                if (dist != null)
+                {
+                    int best = int.MaxValue;
+                    foreach (var n in Neighbors(e.Pos))
+                        if (dist.TryGetValue(n, out int d) && d < best) best = d;
+                    if (best == int.MaxValue) continue;
+                    travel = Math.Min(best * s.Poison, Math.Max(0, s.Hp - 1));
+                }
+
                 if (e.Type == EntityType.Door)
                 {
                     if (!HasKey(s, e.DoorTier)) continue;
                     var next = s.Clone();
+                    next.Hp -= travel;
                     SpendKey(next, e.DoorTier);
                     next.Mask |= 1UL << bit;
                     Explore(next, e.Pos, exitPos);
@@ -193,9 +219,21 @@ namespace Tower.Core.Simulation
                     if (!outcome.Winnable) continue;
                     if (outcome.ExpectedLoss >= s.Hp) continue; // D13：致死格視同牆壁
                     var next = s.Clone();
-                    next.Hp -= outcome.ExpectedLoss;
+                    next.Hp -= travel + outcome.ExpectedLoss;
+                    if (m.Traits.HasFlag(TraitSet.Poison))
+                        next.Poison = Math.Max(next.Poison, Math.Max(1, m.TraitValue));
                     next.Gold += m.GoldDrop;
                     next.Exp += m.ExpDrop;
+                    next.Mask |= 1UL << bit;
+                    Explore(next, e.Pos, exitPos);
+                }
+                else if (e.Type == EntityType.Item && s.Poison > 0)
+                {
+                    // 中毒時道具不再是「免費」（Closure 已停止自動撿）——
+                    // 走過去要花血，所以它跟門和怪一樣是一筆要算的交易。
+                    var next = s.Clone();
+                    next.Hp -= travel;
+                    ApplyItem(next, _items[e.Ref]);
                     next.Mask |= 1UL << bit;
                     Explore(next, e.Pos, exitPos);
                 }
@@ -244,11 +282,21 @@ namespace Tower.Core.Simulation
         private static int _counterOf(State s, string key) => s.CounterOf(key);
 
         /// <summary>BFS 可達區 + 自動撿道具到不動點。會就地修改 s（撿到的道具入帳）。</summary>
+        /// <summary>
+        /// 可達區 ＋ 自動撿免費道具（撿了可能開出新區域，做到不動點）。
+        ///
+        /// **中毒時（D17）不自動撿**：走過去要花血，「免費」的前提消失了。
+        /// 此時道具改由 <see cref="Explore"/> 當成收費的分支動作枚舉。
+        /// 這個分岔是路徑模型與集合模型的接縫——漏掉它，驗證器會把中毒層算得太便宜
+        /// （實測：走廊盡頭的血瓶在中毒下仍被算成純賺 +200）。
+        /// </summary>
         private HashSet<GridPos> Closure(State s, GridPos start)
         {
             while (true)
             {
                 var reach = Bfs(s, start);
+                if (s.Poison > 0) return reach;
+
                 bool picked = false;
                 foreach (var e in _consumable)
                 {
@@ -262,6 +310,32 @@ namespace Tower.Core.Simulation
                 }
                 if (!picked) return reach;
             }
+        }
+
+        /// <summary>
+        /// 從 start 到可達區各格的**最短步數**。只在中毒時算（D17）——
+        /// 沒中毒時走路免費，算了也用不到，白花時間。
+        /// </summary>
+        private Dictionary<GridPos, int> StepsFrom(State s, GridPos start, HashSet<GridPos> reach)
+        {
+            var dist = new Dictionary<GridPos, int> { [start] = 0 };
+            var queue = new Queue<GridPos>();
+            queue.Enqueue(start);
+
+            while (queue.Count > 0)
+            {
+                var pos = queue.Dequeue();
+                int d = dist[pos];
+                foreach (var next in Neighbors(pos))
+                {
+                    if (dist.ContainsKey(next)) continue;
+                    if (!reach.Contains(next)) continue;
+                    if (!_floor.Grid.CanStep(pos, next)) continue;
+                    dist[next] = d + 1;
+                    queue.Enqueue(next);
+                }
+            }
+            return dist;
         }
 
         private HashSet<GridPos> Bfs(State s, GridPos start)
@@ -349,6 +423,7 @@ namespace Tower.Core.Simulation
                 case ItemCategory.Potion: s.Hp += item.HealHp; break; // HP 無上限
                 case ItemCategory.Gem: s.Atk += item.AtkBonus; s.Def += item.DefBonus; break;
                 case ItemCategory.Undo: break; // 沙漏對求解無意義（求解 = 不犯錯的路徑）
+                case ItemCategory.Antidote: s.Poison = 0; break; // D17：解毒藥讓走路重新變免費
             }
         }
     }

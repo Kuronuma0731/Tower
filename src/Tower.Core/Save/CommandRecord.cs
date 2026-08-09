@@ -33,14 +33,14 @@ namespace Tower.Core.Save
     {
         public static CommandRecord ToRecord(IGameCommand cmd) => cmd switch
         {
-            MoveCommand m => new CommandRecord("move", "", m.From.X, m.From.Y, m.To.X, m.To.Y),
+            MoveCommand m => new CommandRecord("move", "", m.From.X, m.From.Y, m.To.X, m.To.Y, m.PoisonPaid),
             OpenDoorCommand d => new CommandRecord("door", d.Eid, (int)d.Tier),
             PickupItemCommand p => new CommandRecord("pickup", p.Eid,
-                p.DKeyY, p.DKeyB, p.DKeyR, p.DHp, p.DAtk, p.DDef, p.DHourglass),
+                p.DKeyY, p.DKeyB, p.DKeyR, p.DHp, p.DAtk, p.DDef, p.DHourglass, p.CuresPoison ? 1 : 0),
             // 再生目標是字串，Values 只裝 int——夾在 Eid 欄位後面（eid 不含 '>'）
             CollisionBattleCommand b => new CommandRecord("battle",
                 b.ReviveInto == null ? b.Eid : b.Eid + ">" + b.ReviveInto,
-                b.HpLoss, b.GoldDrop, b.ExpDrop),
+                b.HpLoss, b.GoldDrop, b.ExpDrop, b.PoisonPerStep),
             // 機關的資料是 eid 清單而不是數字，而 CommandRecord 的 Values 只裝 int——
             // 故以 Eid 欄位夾帶「自己|目標1|目標2」。eid 不含 '|'（由編輯器產生，格式固定）。
             SwitchCommand sw => new CommandRecord("switch", string.Join("|", Prepend(sw.Eid, sw.Targets))),
@@ -53,10 +53,10 @@ namespace Tower.Core.Save
 
         public static IGameCommand FromRecord(in CommandRecord r) => r.Kind switch
         {
-            "move" => new MoveCommand(new GridPos(V(r, 0), V(r, 1)), new GridPos(V(r, 2), V(r, 3))),
+            "move" => new MoveCommand(new GridPos(V(r, 0), V(r, 1)), new GridPos(V(r, 2), V(r, 3)), V(r, 4)),
             "door" => new OpenDoorCommand(r.Eid, (KeyTier)V(r, 0)),
             "pickup" => PickupItemCommand.FromDeltas(r.Eid,
-                V(r, 0), V(r, 1), V(r, 2), V(r, 3), V(r, 4), V(r, 5), V(r, 6)),
+                V(r, 0), V(r, 1), V(r, 2), V(r, 3), V(r, 4), V(r, 5), V(r, 6), V(r, 7)),
             "battle" => MakeBattle(r),
             "switch" => MakeSwitch(r.Eid),
             "buy" => PurchaseCommand.FromDeltas(r.Eid,
@@ -78,7 +78,7 @@ namespace Tower.Core.Save
             int arrow = r.Eid.IndexOf('>');
             string eid = arrow < 0 ? r.Eid : r.Eid.Substring(0, arrow);
             string revive = arrow < 0 ? null : r.Eid.Substring(arrow + 1);
-            return CollisionBattleCommand.FromDeltas(eid, V(r, 0), V(r, 1), V(r, 2), revive);
+            return CollisionBattleCommand.FromDeltas(eid, V(r, 0), V(r, 1), V(r, 2), revive, V(r, 3));
         }
 
         private static IGameCommand MakeSwitch(string packed)

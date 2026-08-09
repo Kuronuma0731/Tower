@@ -51,6 +51,8 @@
     { "eid": "DEV_m07", "type": "monster", "ref": "golem_adaptive", "x": 9, "y": 7 },
     { "eid": "DEV_m08", "type": "monster", "ref": "knight_weaken", "x": 5, "y": 7 },
     { "eid": "DEV_m09", "type": "monster", "ref": "duel_scripted", "x": 7, "y": 7 },
+    { "eid": "DEV_m10", "type": "monster", "ref": "wasp_venom", "x": 2, "y": 6 },
+    { "eid": "DEV_i09", "type": "item", "ref": "antidote", "x": 10, "y": 6 },
 
     { "//": "NPC 對話", "eid": "DEV_n01", "type": "npc", "dialogue": "dlg_f01_intro", "x": 1, "y": 6 },
 

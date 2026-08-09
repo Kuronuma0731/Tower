@@ -7,3 +7,4 @@ potion_l,大血瓶,potion,,400,,,,item_potion_l,回復 400 生命。塔裡最實
 gem_atk,攻擊寶石,gem,,,2,,,item_gem_atk,攻擊永久 +2。
 gem_def,防禦寶石,gem,,,,2,,item_gem_def,防禦永久 +2。
 hourglass,沙漏,undo,,,,,5,item_hourglass,能回溯數步的沙漏。在這座塔裡，後悔是稀有資源。
+antidote,解毒藥,antidote,,,,,,item_potion_s,解除中毒。毒不會殺死你，但會讓每一步都變貴。

@@ -6,6 +6,7 @@ namespace Tower.Core.Floors
         Potion,
         Gem,
         Undo,
+        Antidote,
     }
 
     /// <summary>道具靜態定義（items.csv 的 POCO 形式）。稀疏欄位：不相干者為 0。</summary>

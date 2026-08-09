@@ -53,6 +53,9 @@ namespace Tower.Game
             _view = new ViewFactory();
             _hud = new HudView(_view, _text, this);
 
+            // 虛擬方向鍵（D9）：左下角，橫向雙手持握時落在左拇指下
+            TouchPad.Create(this, new Vector2(150, 580)).Stepped += Step;
+
             LoadFloor(_floors.Order[0]);         // 從最低層（序章）開場，照原版
             StartDialogue("dlg_f00_prologue");
         }
@@ -187,15 +190,33 @@ namespace Tower.Game
         {
             if (_activeDialogue != null)
             {
-                if (ev.IsActionPressed("confirm") || ev is InputEventKey { Pressed: true }) AdvanceDialogue();
+                // 只吃「按下」，不吃放開——否則一次敲鍵會翻兩頁
+                if (ev is InputEventKey { Pressed: true, Echo: false } || ev.IsActionPressed("confirm"))
+                    AdvanceDialogue();
                 return;
             }
             if (_busy) return;
 
-            if (Input.IsActionJustPressed("move_up")) TryStep(0, -1, SpriteMap.HeroDirUp);
-            else if (Input.IsActionJustPressed("move_down")) TryStep(0, 1, SpriteMap.HeroDirDown);
-            else if (Input.IsActionJustPressed("move_left")) TryStep(-1, 0, SpriteMap.HeroDirLeft);
-            else if (Input.IsActionJustPressed("move_right")) TryStep(1, 0, SpriteMap.HeroDirRight);
+            // 用事件判斷而不是輪詢 Input：_UnhandledInput 是事件回呼，
+            // 在裡面問全域輸入狀態會和事件流錯開（同一幀多事件時可能重複觸發或漏掉）
+            if (ev.IsActionPressed("move_up")) Step(0, -1);
+            else if (ev.IsActionPressed("move_down")) Step(0, 1);
+            else if (ev.IsActionPressed("move_left")) Step(-1, 0);
+            else if (ev.IsActionPressed("move_right")) Step(1, 0);
+        }
+
+        /// <summary>方向 → 走一步。鍵盤與虛擬方向鍵（D9）共用這個入口。</summary>
+        private void Step(int dx, int dy)
+        {
+            if (_busy || _activeDialogue != null) return;
+            int dir = (dx, dy) switch
+            {
+                (0, -1) => SpriteMap.HeroDirUp,
+                (0, 1) => SpriteMap.HeroDirDown,
+                (-1, 0) => SpriteMap.HeroDirLeft,
+                _ => SpriteMap.HeroDirRight,
+            };
+            TryStep(dx, dy, dir);
         }
 
         private async void TryStep(int dx, int dy, int dir)

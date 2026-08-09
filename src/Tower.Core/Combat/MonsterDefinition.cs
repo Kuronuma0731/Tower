@@ -24,13 +24,21 @@ namespace Tower.Core.Combat
         /// </summary>
         public int Agility { get; }
 
+        /// <summary>
+        /// 怪物手冊上的一句話（monsters.csv 的 bestiary_note）。
+        /// 不是風味文字——它負責把**這隻怪的取捨**講給玩家聽（「打得動不代表該打」），
+        /// 這是 D1 純碰撞戰下傳達設計意圖的主要管道。玩家可見字串，故來自資料表。
+        /// </summary>
+        public string BestiaryNote { get; }
+
         public MonsterDefinition(
             string id, int atk, int def, int hp,
             TraitSet traits, int goldDrop, int expDrop, bool isGuardian,
-            string nameZh = "", int agility = 0)
+            string nameZh = "", int agility = 0, string bestiaryNote = "")
         {
             Id = id;
             NameZh = nameZh;
+            BestiaryNote = bestiaryNote;
             Agility = agility;
             Atk = atk;
             Def = def;

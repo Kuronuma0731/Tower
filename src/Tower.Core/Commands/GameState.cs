@@ -29,6 +29,15 @@ namespace Tower.Core.Commands
         /// <summary>遞增計價的計數。鍵格式："shop_id:item_id" 或 "altar_id:stat"。</summary>
         public readonly Dictionary<string, int> PurchaseCounts = new Dictionary<string, int>();
 
+        /// <summary>
+        /// 已遭遇的怪物 id（怪物手冊的內容）。
+        ///
+        /// **刻意不走指令模式**，是 D7「所有狀態變更都是 IGameCommand」的唯一例外：
+        /// 這是**知識不是資源**——回溯一步不該讓玩家「忘記」看過的怪。
+        /// 它只增不減，回溯與退回樓層都不動它。
+        /// </summary>
+        public readonly HashSet<string> SeenMonsters = new HashSet<string>();
+
         public PlayerStats CombatStats => new PlayerStats(Atk, Def);
 
         /// <summary>樓層快照用的深拷貝。</summary>
@@ -44,6 +53,7 @@ namespace Tower.Core.Commands
                 Position = Position,
             };
             copy.ConsumedEids.UnionWith(ConsumedEids);
+            copy.SeenMonsters.UnionWith(SeenMonsters);
             foreach (var kv in PurchaseCounts)
                 copy.PurchaseCounts[kv.Key] = kv.Value;
             return copy;

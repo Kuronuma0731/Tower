@@ -60,7 +60,8 @@ namespace Tower.Core.Data
                     expDrop: Csv.Int(c[8]),
                     isGuardian: Csv.Bool(c[9]),
                     nameZh: c[1].Trim(),
-                    agility: Csv.Int(c[5]));
+                    agility: Csv.Int(c[5]),
+                    bestiaryNote: c[11].Trim());
             }
             return result;
         }

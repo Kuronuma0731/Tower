@@ -64,3 +64,13 @@ lbl_altar,祭壇
 lbl_leave,離開
 msg_cannot_afford,不夠
 msg_dev_floor_top,設定層不接到塔上
+lbl_bestiary,怪物手冊
+lbl_trait_first_strike,先攻
+lbl_trait_multi_hit,連擊
+lbl_trait_pierce,魔攻
+lbl_trait_lifesteal,吸血
+lbl_trait_evasion,迴避
+lbl_trait_none,無特性
+lbl_guardian,守關
+lbl_agility,敏捷
+msg_bestiary_empty,還沒遇過任何怪物

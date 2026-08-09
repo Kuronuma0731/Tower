@@ -89,7 +89,12 @@ namespace Tower.Core.Save
             foreach (var stale in _snapshots.Where(kv => kv.Value.Seq > target.Seq).Select(kv => kv.Key).ToList())
                 _snapshots.Remove(stale);
 
+            // 知識不是資源：手冊只增不減，退回樓層不該讓玩家「忘記」看過的怪。
+            // 快照是深拷貝，直接還原會連手冊一起退掉——所以先留著、還原後併回去。
+            var knowledge = new HashSet<string>(State.SeenMonsters);
+
             State = target.State.Clone();
+            State.SeenMonsters.UnionWith(knowledge);
             _since.Clear();
             _nextSeq = target.Seq + 1;
         }

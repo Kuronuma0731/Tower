@@ -26,6 +26,7 @@ namespace Tower.Game
         private HudView _hud;
         private BattleView _battleView;
         private ShopView _shopView;
+        private BestiaryView _bestiary;
         private TextBank _text;
         private Catalog _catalog;
         private FloorRegistry _floors;
@@ -65,6 +66,7 @@ namespace Tower.Game
             _hud = new HudView(_view, _text, this);
             _battleView = new BattleView(this, _view, _hud, _text);
             _shopView = new ShopView(_view, _text, this);
+            _bestiary = new BestiaryView(_view, _text, _catalog, this);
 
             // 虛擬方向鍵（D9）：左下角，橫向雙手持握時落在左拇指下
             _pad = TouchPad.Create(this, PadCenter);
@@ -260,6 +262,10 @@ namespace Tower.Game
 
                 if (e.Type == EntityType.Monster)
                 {
+                    // 踏進這一層就算「遭遇」——手冊記的是見過什麼，不是打過什麼。
+                    // 知識只增不減，回溯不會讓玩家忘記（見 GameState.SeenMonsters）。
+                    _state.SeenMonsters.Add(e.Ref);
+
                     // 傷害預覽常駐、掛在怪物身上（怪物消失標籤跟著走）
                     var lb = _view.MakeLabel(node, new Vector2(-24, -30), 14, HorizontalAlignment.Center, Colors.White, 60);
                     lb.Size = new Vector2(48, 18);
@@ -298,7 +304,10 @@ namespace Tower.Game
             if (ev.IsActionPressed("editor_toggle")) { ToggleEditor(); return; }
             if (ev.IsActionPressed("dev_floor")) { JumpToDevFloor(); return; }
 
-            if (_shopView.Open) return;   // 面板開著時不吃移動
+            // 怪物手冊：與傷害預覽共同構成玩家的計算依據（D1 下特性是怪物的全部獨特性）
+            if (ev.IsActionPressed("bestiary")) { _bestiary.Toggle(_state); return; }
+
+            if (_shopView.Open || _bestiary.Open) return;   // 面板開著時不吃移動
 
             if (_editor != null && _editor.Active)
             {

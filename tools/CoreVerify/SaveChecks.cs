@@ -19,11 +19,44 @@ namespace Tower.Verify
         {
             Console.WriteLine("== 存檔（D7）==");
 
+            BestiaryIsKnowledgeNotResource(catalog, check);
             ShopAndAltarRoundTrip(catalog, check);
             RoundTrip(catalog, check);
             UndoIsExact(catalog, check);
             SingleTimeline(check);
             FloorEntryClearsStream(check);
+        }
+
+        /// <summary>
+        /// 怪物手冊是**知識不是資源**——D7「所有狀態變更都是指令」的唯一例外。
+        /// 回溯一步不該讓玩家「忘記」看過的怪；退回樓層入口也不該。
+        /// 這條刻意的例外必須被證明，否則日後有人會「順手修正」成走指令模式。
+        /// </summary>
+        private static void BestiaryIsKnowledgeNotResource(Catalog catalog, Action<string, bool> check)
+        {
+            var save = new SaveGame(new GameState { Atk = 10, Def = 10, Hp = 1000 });
+            save.EnterFloor("F00");
+            save.State.SeenMonsters.Add("slime_green");
+
+            var m = catalog.Monsters["slime_green"];
+            save.Apply(new CollisionBattleCommand("F00_m01",
+                CombatResolver.ResolveCollision(save.State.CombatStats, m), m));
+
+            save.UndoOne();
+            check("回溯不會抹掉手冊（知識只增不減）", save.State.SeenMonsters.Contains("slime_green"));
+
+            save.EnterFloor("F01");
+            save.State.SeenMonsters.Add("bat_cave");
+            save.RevertToFloor("F00");
+            check("退回樓層也不抹掉手冊",
+                save.State.SeenMonsters.Contains("slime_green"));
+
+            var loaded = SaveGame.FromData(SaveData.FromJson(save.ToData().ToJson()));
+            check($"手冊進得了存檔（{loaded.State.SeenMonsters.Count} 筆）",
+                loaded.State.SeenMonsters.SetEquals(save.State.SeenMonsters));
+
+            check("怪物都有手冊註記（bestiary_note 有讀進 POCO）",
+                catalog.Monsters.Values.Count(x => !string.IsNullOrEmpty(x.BestiaryNote)) >= 14);
         }
 
         /// <summary>

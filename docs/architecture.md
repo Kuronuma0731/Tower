@@ -163,8 +163,8 @@ _hud  = new HudView(_view, _text, this);
 1. ~~**Core：Grid + Combat + IGameCommand**~~ ✅ 完成（跨引擎搬遷後仍全綠）
 2. ~~**Simulation + 可達性驗證器**~~ ✅ 完成（含守關怪合約檢查、守衛有效性檢查）
 3. ~~**最小可玩版**~~ ✅ 完成（F00–F02、方向鍵、碰撞戰演出、三欄 HUD）
-4. **怪物手冊 + 回溯道具** — 回溯的 UI 很小，但背後的指令流在第 1 步已就緒
-5. **存檔：樓層快照 + 指令流序列化 + 祭壇**
+4. ~~**怪物手冊 + 回溯道具**~~ ✅ 完成（`game/BestiaryView.cs`，B 鍵；回溯 Z 鍵消耗沙漏）
+5. ~~**存檔：樓層快照 + 指令流序列化 + 祭壇**~~ ✅ 完成（商店與祭壇一併落地，見 `game/ShopView.cs`）
 6. ~~**關卡編輯器**~~ ✅ 完成（`game/EditorMode.cs`，F2 開關）。六項規格全數落地；做成**遊戲內模式**而非 `EditorPlugin`——直接重用 ViewFactory/SpriteMap/FloorSolver，所見即遊戲實際長相。原本的理由仍然成立：在手工做超過 5 層之前一定要有。一人開發（D12）下，它的產能直接決定 D6 的 25–30 層是否成立。**Godot 的編輯器外掛（`EditorPlugin`）是這一步的載體**，Unity 時期寫的六功能規格（`floor-authoring.md`）仍然適用
 7. **10–15 層內容 + 難度弧線**（MVP＝D3；出貨版 25–30 層＝D6）
 

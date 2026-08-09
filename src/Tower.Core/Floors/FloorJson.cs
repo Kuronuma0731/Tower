@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Linq;
 using System.Text.Json;
 using Tower.Core.Grid;
 
@@ -68,6 +68,10 @@ namespace Tower.Core.Floors
             string @ref = e.TryGetProperty("ref", out var r) ? r.GetString() : null;
             string dialogue = e.TryGetProperty("dialogue", out var d) ? d.GetString() : null;
 
+            string[] targets = null;
+            if (e.TryGetProperty("targets", out var tgt) && tgt.ValueKind == JsonValueKind.Array)
+                targets = tgt.EnumerateArray().Select(x => x.GetString()).ToArray();
+
             var tier = KeyTier.Yellow;
             if (type == EntityType.Door)
             {
@@ -93,7 +97,8 @@ namespace Tower.Core.Floors
                 };
             }
 
-            return new FloorEntity(eid, type, pos, @ref: @ref, doorTier: tier, stairs: dir, dialogueId: dialogue);
+            return new FloorEntity(eid, type, pos, @ref: @ref, doorTier: tier, stairs: dir,
+                                   dialogueId: dialogue, switchTargets: targets);
         }
 
         private static string Str(JsonElement e, string name)

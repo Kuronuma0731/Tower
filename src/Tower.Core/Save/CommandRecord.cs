@@ -38,6 +38,9 @@ namespace Tower.Core.Save
             PickupItemCommand p => new CommandRecord("pickup", p.Eid,
                 p.DKeyY, p.DKeyB, p.DKeyR, p.DHp, p.DAtk, p.DDef, p.DHourglass),
             CollisionBattleCommand b => new CommandRecord("battle", b.Eid, b.HpLoss, b.GoldDrop, b.ExpDrop),
+            // 機關的資料是 eid 清單而不是數字，而 CommandRecord 的 Values 只裝 int——
+            // 故以 Eid 欄位夾帶「自己|目標1|目標2」。eid 不含 '|'（由編輯器產生，格式固定）。
+            SwitchCommand sw => new CommandRecord("switch", string.Join("|", Prepend(sw.Eid, sw.Targets))),
             PurchaseCommand p => new CommandRecord("buy", p.CountKey,
                 p.Price, p.DKeyY, p.DKeyB, p.DKeyR, p.DHp, p.DAtk, p.DDef, p.DHourglass),
             AltarExchangeCommand a => new CommandRecord("altar", a.CountKey,
@@ -52,11 +55,28 @@ namespace Tower.Core.Save
             "pickup" => PickupItemCommand.FromDeltas(r.Eid,
                 V(r, 0), V(r, 1), V(r, 2), V(r, 3), V(r, 4), V(r, 5), V(r, 6)),
             "battle" => CollisionBattleCommand.FromDeltas(r.Eid, V(r, 0), V(r, 1), V(r, 2)),
+            "switch" => MakeSwitch(r.Eid),
             "buy" => PurchaseCommand.FromDeltas(r.Eid,
                 V(r, 0), V(r, 1), V(r, 2), V(r, 3), V(r, 4), V(r, 5), V(r, 6), V(r, 7)),
             "altar" => AltarExchangeCommand.FromDeltas(r.Eid, V(r, 0), V(r, 1), V(r, 2), V(r, 3)),
             _ => throw new ArgumentException($"存檔含未知的指令種類 '{r.Kind}'"),
         };
+
+        private static string[] Prepend(string first, string[] rest)
+        {
+            var all = new string[rest.Length + 1];
+            all[0] = first;
+            Array.Copy(rest, 0, all, 1, rest.Length);
+            return all;
+        }
+
+        private static IGameCommand MakeSwitch(string packed)
+        {
+            var parts = packed.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
+            var targets = new string[Math.Max(0, parts.Length - 1)];
+            Array.Copy(parts, 1, targets, 0, targets.Length);
+            return new SwitchCommand(parts.Length > 0 ? parts[0] : "", targets);
+        }
 
         private static int V(in CommandRecord r, int i)
             => i < r.Values.Length ? r.Values[i] : throw new ArgumentException($"'{r.Kind}' 記錄缺少第 {i} 個欄位");

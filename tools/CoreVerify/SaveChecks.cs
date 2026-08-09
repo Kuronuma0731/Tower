@@ -19,12 +19,43 @@ namespace Tower.Verify
         {
             Console.WriteLine("== 存檔（D7）==");
 
+            SwitchUndoIsPrecise(check);
             BestiaryIsKnowledgeNotResource(catalog, check);
             ShopAndAltarRoundTrip(catalog, check);
             RoundTrip(catalog, check);
             UndoIsExact(catalog, check);
             SingleTimeline(check);
             FloorEntryClearsStream(check);
+        }
+
+        /// <summary>
+        /// 機關的回溯有個微妙陷阱：若目標**早就被消耗過**（玩家已經用鑰匙開了那扇門），
+        /// 撤銷機關時不該把它一起復活——那會憑空多出一扇門。
+        /// 所以 SwitchCommand 記的是「哪些 eid 是我加進去的」，不是「目標清單」。
+        /// </summary>
+        private static void SwitchUndoIsPrecise(Action<string, bool> check)
+        {
+            var save = new SaveGame(new GameState { Atk = 10, Def = 10, Hp = 1000 });
+            save.EnterFloor("DEV_SETTINGS");
+
+            // 玩家先用鑰匙開了 d03，之後才踩到以 d03 為目標的機關
+            save.State.ConsumedEids.Add("DEV_d03");
+            save.Apply(new SwitchCommand("DEV_sw1", new[] { "DEV_d03", "DEV_d02" }));
+
+            check("機關開掉所有目標",
+                save.State.ConsumedEids.IsSupersetOf(new[] { "DEV_sw1", "DEV_d03", "DEV_d02" }));
+
+            save.UndoOne();
+            check("回溯只還原機關自己開的（先前已開的門不會復活）",
+                !save.State.ConsumedEids.Contains("DEV_sw1")
+                && !save.State.ConsumedEids.Contains("DEV_d02")
+                && save.State.ConsumedEids.Contains("DEV_d03"));
+
+            save.Apply(new SwitchCommand("DEV_sw1", new[] { "DEV_d02" }));
+            var loaded = SaveGame.FromData(SaveData.FromJson(save.ToData().ToJson()));
+            check("機關指令進得了存檔（eid 清單夾帶在 Eid 欄位）",
+                loaded.UndoDepth == save.UndoDepth
+                && loaded.State.ConsumedEids.SetEquals(save.State.ConsumedEids));
         }
 
         /// <summary>

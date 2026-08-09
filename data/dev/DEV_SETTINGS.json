@@ -49,6 +49,8 @@
 
     { "//": "NPC 對話", "eid": "DEV_n01", "type": "npc", "dialogue": "dlg_f01_intro", "x": 1, "y": 6 },
 
-    { "//": "上樓梯：設定層不接塔，踏上去只會顯示提示", "eid": "DEV_s01", "type": "stairs", "dir": "up", "x": 11, "y": 6 }
+    { "eid": "DEV_s01", "type": "stairs", "dir": "up", "x": 11, "y": 6 },
+
+    { "//": "機關：踏上去開掉目標紅門（跨層依賴的唯一機制）", "eid": "DEV_sw1", "type": "switch", "targets": ["DEV_d03"], "x": 1, "y": 3 }
   ]
 }

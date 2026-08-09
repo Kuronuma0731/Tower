@@ -26,13 +26,15 @@ namespace Tower.Game
         private readonly ViewFactory _view;
         private readonly HudView _hud;
         private readonly TextBank _text;
+        private readonly AudioBank _audio;
 
-        public BattleView(Node host, ViewFactory view, HudView hud, TextBank text)
+        public BattleView(Node host, ViewFactory view, HudView hud, TextBank text, AudioBank audio)
         {
             _host = host;
             _view = view;
             _hud = hud;
             _text = text;
+            _audio = audio;
         }
 
         /// <summary>
@@ -74,6 +76,10 @@ namespace Tower.Game
 
                 // 我方先手：怪先挨
                 monsterHp = last ? 0 : Mathf.Max(0, monsterHp - Mathf.CeilToInt(monster.Hp / (float)shown));
+                // 守關怪用暴擊音、魔攻用法術音、其餘平 A——聽覺上就分得出對手的性質
+                _audio.Play(monster.IsGuardian ? AudioBank.Crit
+                    : monster.Traits.HasFlag(TraitSet.Pierce) ? AudioBank.Magic
+                    : AudioBank.Attack);
                 Burst(_hud.BattleMonsterAnchor);
                 FloatDamage(_hud.BattleMonsterAnchor, playerHit.ToString(), new Color(1f, 0.25f, 0.2f));
                 _hud.SetBattleHp(monsterHp, playerHp, player);

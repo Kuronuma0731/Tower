@@ -27,6 +27,7 @@ namespace Tower.Game
         private BattleView _battleView;
         private ShopView _shopView;
         private BestiaryView _bestiary;
+        private AudioBank _audio;
         private TextBank _text;
         private Catalog _catalog;
         private FloorRegistry _floors;
@@ -64,7 +65,8 @@ namespace Tower.Game
 
             _view = new ViewFactory();
             _hud = new HudView(_view, _text, this);
-            _battleView = new BattleView(this, _view, _hud, _text);
+            _audio = AudioBank.Create(this);
+            _battleView = new BattleView(this, _view, _hud, _text, _audio);
             _shopView = new ShopView(_view, _text, this);
             _bestiary = new BestiaryView(_view, _text, _catalog, this);
 
@@ -249,8 +251,27 @@ namespace Tower.Game
             for (int x = 0; x < FloorGrid.Size; x++)
             {
                 var pos = new GridPos(x, y);
-                bool wall = _floor.Grid[pos] == TerrainType.Wall;
-                _view.MakeSprite(wall ? SpriteMap.TileWall : SpriteMap.TileFloor, LocalOf(pos), 0);
+                var terrain = _floor.Grid[pos];
+                _view.MakeSprite(terrain == TerrainType.Wall ? SpriteMap.TileWall : SpriteMap.TileFloor,
+                    LocalOf(pos), 0);
+
+                // 單向格必須看得見。規則早就在 Grid 裡，但棋盤一直畫成普通地板——
+                // 玩家踏進去才發現回不來，那不是謎題是陷阱（D13 的視覺語言同理）。
+                string arrow = terrain switch
+                {
+                    TerrainType.OneWayNorth => "↑",
+                    TerrainType.OneWaySouth => "↓",
+                    TerrainType.OneWayWest => "←",
+                    TerrainType.OneWayEast => "→",
+                    _ => null,
+                };
+                if (arrow != null)
+                {
+                    var lb = _view.MakeLabel(_boardRoot, LocalOf(pos) - new Vector2(16, 16), 20,
+                        HorizontalAlignment.Center, new Color(1f, 0.85f, 0.35f), 5);
+                    lb.Text = arrow;
+                    lb.Size = new Vector2(32, 32);
+                }
             }
 
             foreach (var e in _floor.Entities)
@@ -306,6 +327,10 @@ namespace Tower.Game
 
             // 怪物手冊：與傷害預覽共同構成玩家的計算依據（D1 下特性是怪物的全部獨特性）
             if (ev.IsActionPressed("bestiary")) { _bestiary.Toggle(_state); return; }
+
+            // D7 外層防護：免費退回本層入口。機制在 SaveGame 寫好了很久，
+            // 但一直沒有入口——玩家碰不到的決策等於沒兌現。
+            if (ev.IsActionPressed("retreat")) { RetreatToEntry(); return; }
 
             if (_shopView.Open || _bestiary.Open) return;   // 面板開著時不吃移動
 
@@ -388,7 +413,8 @@ namespace Tower.Game
             switch (e.Type)
             {
                 case EntityType.Door:
-                    if (!HasKey(e.DoorTier)) { _hud.Toast(KeyMsg(e.DoorTier)); return; }
+                    if (!HasKey(e.DoorTier)) { _audio.Play(AudioBank.Blocked); _hud.Toast(KeyMsg(e.DoorTier)); return; }
+                    _audio.Play(AudioBank.Door);
                     Apply(new OpenDoorCommand(e.Eid, e.DoorTier));
                     _entityViews[e.Eid].QueueFree();
                     RefreshHud();
@@ -400,6 +426,7 @@ namespace Tower.Game
 
                 // 商店/祭壇是**互動點不是障礙**：站在旁邊開面板，不佔用移動
                 case EntityType.Shop:
+                    _audio.Play(AudioBank.Shop);
                     if (_catalog.Shops.TryGetValue(e.Ref, out var shop))
                         _shopView.ShowShop(shop, _catalog, _state, Apply, RefreshHud);
                     return;
@@ -409,12 +436,21 @@ namespace Tower.Game
                         _shopView.ShowAltar(altar, _state, Apply, RefreshHud);
                     return;
 
+                // 機關：把目標實體標成已消耗（通常是門，於是門開了）。
+                // 目標可跨層，是本作唯一能製造跨層依賴的機制。
+                case EntityType.Switch:
+                    _audio.Play(AudioBank.Door);
+                    Apply(new SwitchCommand(e.Eid, e.SwitchTargets));
+                    RebuildBoard();     // 目標可能在本層，開了要看得見
+                    _hud.Toast(_text["msg_switch"]);
+                    return;
+
                 case EntityType.Monster:
                     var m = _catalog.Monsters[e.Ref];
                     var outcome = CombatResolver.ResolveCollision(_state.CombatStats, m);
                     // D13：打不過或會死 —— 那隻怪就是一堵牆，不會發生戰鬥
-                    if (!outcome.Winnable) { _hud.Toast(_text["msg_cannot_win"]); return; }
-                    if (outcome.ExpectedLoss >= _state.Hp) { _hud.Toast(_text["msg_lethal_blocked"]); return; }
+                    if (!outcome.Winnable) { _audio.Play(AudioBank.Blocked); _hud.Toast(_text["msg_cannot_win"]); return; }
+                    if (outcome.ExpectedLoss >= _state.Hp) { _audio.Play(AudioBank.Blocked); _hud.Toast(_text["msg_lethal_blocked"]); return; }
                     _busy = true;
                     await _battleView.Play(m, outcome, _state, () =>
                     {
@@ -433,6 +469,7 @@ namespace Tower.Game
 
             if (here.Type == EntityType.Item)
             {
+                _audio.Play(AudioBank.Item);
                 Apply(new PickupItemCommand(here.Eid, _catalog.Items[here.Ref]));
                 _entityViews[here.Eid].QueueFree();
                 return;
@@ -450,6 +487,7 @@ namespace Tower.Game
 
             // 座標對齊規約由 FloorRegistry 統一處理——樓層編號相鄰即相接，
             // 落點自動取對面那道樓梯。加樓層不必碰這裡。
+            _audio.Play(AudioBank.Stairs);
             if (_floors.TryTravel(_state.CurrentFloor, here.Stairs, out string toId, out var landing))
             {
                 LoadFloor(toId, landing);
@@ -502,6 +540,26 @@ namespace Tower.Game
             RebuildBoard();
             SaveFile.Write(_save);
             _hud.Toast(_text["msg_undone"]);
+        }
+
+        /// <summary>
+        /// 退回本層入口（D7 外層防護）——**免費**。
+        ///
+        /// 這一層處理的是「這層根本不該進」；同層內的失誤由回溯（付費，Z 鍵）處理。
+        /// 兩層的分工是 D7 的核心：外層不收費，所以玩家永遠不會真的卡死；
+        /// 內層收費，所以每一步仍然有重量。
+        ///
+        /// 沿用 D7 全域硬核：不問「確定要退嗎」。退回去就是退回去。
+        /// </summary>
+        private void RetreatToEntry()
+        {
+            if (_busy || _activeDialogue != null || _shopView.Open || _bestiary.Open) return;
+
+            _save.RevertToFloor(_state.CurrentFloor);
+            _audio.Play(AudioBank.Stairs);
+            RebuildBoard();
+            SaveFile.Write(_save);
+            _hud.Toast(_text["msg_retreated"], 2.0);
         }
 
         /// <summary>就地重建棋盤與主角（回溯後用）——不動 _save，只重畫。</summary>

@@ -75,7 +75,7 @@ powershell -File tools/slice-sheets.ps1 -SourceDir "G:\圖片放置\魔塔" -Out
 
 ## 未做
 
-- 音效／BGM：`bgm/` 有 41 個現成檔，尚未接入
+- 音效：9 個事件音已接入（`assets/audio/`，對照表在 `game/AudioBank.cs`）。來源 `bgm/` 內的**新新魔塔**系列音效——鐵劍平A／暴擊／金幣／系統音，正是本類型的聲音。BGM 尚未接入
 - 怪物待機動畫：每隻的 `c1`–`c3` 幀已切好，尚未接
 - 舊的手繪厚塗素材（38 張）：D14 前的路線，已停用
 

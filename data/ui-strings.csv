@@ -74,3 +74,6 @@ lbl_trait_none,無特性
 lbl_guardian,守關
 lbl_agility,敏捷
 msg_bestiary_empty,還沒遇過任何怪物
+lbl_retreat,退回樓層入口
+msg_retreated,已退回本層入口（免費）
+msg_switch,機關啟動了

@@ -39,22 +39,21 @@ namespace Tower.Verify
                 File.ReadAllText(Path.Combine(dataDir, "monsters.csv")),
                 File.ReadAllText(Path.Combine(dataDir, "items.csv")));
 
+
             DataChecks(catalog);
             FormulaChecks();
             EvasionChecks();
             CommandChecks();
             GridChecks();
             SolverChecks(catalog);
-            F00Checks(catalog);
-            F01Checks(catalog);
-            F02Checks(catalog);
-            FloorPairingChecks();
+            CombatAnchors(catalog);
+            var floors = FloorChecks.Run(repo, catalog, Check);
 
             Console.WriteLine($"\n{_passed} passed, {_failed} failed");
 
             // 通過後跑一趟無頭遊玩，把「玩起來像什麼」印出來
             if (_failed == 0 && Environment.GetCommandLineArgs().Contains("--play"))
-                Playthrough.Run(catalog);
+                Playthrough.Run(catalog, floors);
 
             return _failed == 0 ? 0 : 1;
         }
@@ -68,8 +67,6 @@ namespace Tower.Verify
                 catalog.Monsters["slimeman"].Agility == 30);
             Check($"特性欄有讀到（紅蝙蝠 {catalog.Monsters["vampbat_king"].Traits}）",
                 catalog.Monsters["vampbat_king"].Traits == TraitSet.MultiHit);
-            Check("F01 引用的怪都在表內", F01.MonsterRefs.All(catalog.Monsters.ContainsKey));
-            Check("F01 引用的道具都在表內", F01.ItemRefs.All(catalog.Items.ContainsKey));
 
             bool threw = false;
             try { Catalog.ParseTraits("first_stirke"); } catch (ArgumentException) { threw = true; }
@@ -229,16 +226,13 @@ namespace Tower.Verify
                 contracts.Count == 1 && contracts[0].Passed);
         }
 
-        private static void F01Checks(Catalog catalog)
+        /// <summary>
+        /// 戰鬥數值的回歸錨點——這些數字散在 mechanics.md 與 reference-classic-mt.md，
+        /// 也是原版實測對得上的那幾個。逐層檢查已移到 <see cref="FloorChecks"/>。
+        /// </summary>
+        private static void CombatAnchors(Catalog catalog)
         {
-            Console.WriteLine("== F01 ==");
-            var start = new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv
-            var result = new FloorSolver(F01.Build(), catalog.Monsters, catalog.Items)
-                .Solve(start, F01.SpawnPos, F01.StairsUpPos);
-            // 三瓶血都要用血換：左壁龕(蝙蝠 -132)、左上角(史萊姆 -32)、右上角(紅史萊姆 -80)。
-            // 1000 + 600 − 244 = 1356。右壁龕那瓶被黑史萊姆擋住，這層拿不到。
-            Check($"可解 {result.Status} exitHp={result.BestExitHp} nodes={result.NodesExplored}（期望 1356）",
-                result.Status == SolverStatus.Solvable && result.BestExitHp == 1356);
+            Console.WriteLine("== 戰鬥數值錨點 ==");
 
             var black = catalog.Monsters["slime_black"];
             var now = CombatResolver.ResolveCollision(new PlayerStats(10, 10), black);
@@ -248,147 +242,15 @@ namespace Tower.Verify
 
             var sl = CombatResolver.ResolveCollision(new PlayerStats(10, 10), catalog.Monsters["slime_green"]);
             var bt = CombatResolver.ResolveCollision(new PlayerStats(10, 10), catalog.Monsters["bat_cave"]);
-            Check($"預覽數字 史萊姆 -{sl.ExpectedLoss} / 蝙蝠 -{bt.ExpectedLoss}（期望 32 / 132）",
+            Check($"預覽數字 綠史萊姆 -{sl.ExpectedLoss} / 蝙蝠 -{bt.ExpectedLoss}（期望 32 / 132；原版實測綠史萊姆亦為 32）",
                 sl.ExpectedLoss == 32 && bt.ExpectedLoss == 132);
-        }
 
-        private static void F00Checks(Catalog catalog)
-        {
-            Console.WriteLine("== F00 序章 ==");
-            Check("引用的怪與道具都在表內",
-                F00.MonsterRefs.All(catalog.Monsters.ContainsKey) && F00.ItemRefs.All(catalog.Items.ContainsKey));
-
-            var start = new GameState { Atk = 10, Def = 10, Hp = 1000 };
-            var result = new FloorSolver(F00.Build(), catalog.Monsters, catalog.Items)
-                .Solve(start, F00.SpawnPos, F00.StairsUpPos);
-            Check($"可解 {result.Status} exitHp={result.BestExitHp}（1000 −32 綠史萊姆 +200 血瓶 = 1168）",
-                result.Status == SolverStatus.Solvable && result.BestExitHp == 1168);
-
-            // 序章不該有任何會擋死新手的東西：每隻怪都打得起
-            var lethal = F00.Build().Entities
-                .Where(e => e.Type == EntityType.Monster)
-                .Select(e => CombatResolver.ResolveCollision(new PlayerStats(10, 10), catalog.Monsters[e.Ref]))
-                .Where(o => !o.Winnable || o.ExpectedLoss >= 1000)
-                .ToArray();
-            Check($"序章沒有打不過的怪（D13 牆留給 1F 才登場）", lethal.Length == 0);
-        }
-
-        private static void F02Checks(Catalog catalog)
-        {
-            Console.WriteLine("== F02 ==");
-            Check("引用的怪與道具都在表內",
-                F02.MonsterRefs.All(catalog.Monsters.ContainsKey) && F02.ItemRefs.All(catalog.Items.ContainsKey));
-
-            // 進入 F02 的狀態＝走完 F01 最佳線（1F 沒有寶石，故攻防仍是初始值）
-            var arrival = new GameState { Atk = 10, Def = 10, Hp = 1468 };
-            var result = new FloorSolver(F02.Build(), catalog.Monsters, catalog.Items)
-                .Solve(arrival, F02.StairsDownPos, F02.StairsUpPos);
-            Check($"可解 {result.Status} exitHp={result.BestExitHp} nodes={result.NodesExplored}",
-                result.Status == SolverStatus.Solvable);
-
-            // 本層的教學：先拿攻擊寶石，右翼的蝙蝠就變便宜
+            // F02 的教學：先拿攻擊寶石，後面的怪就變便宜
             var bat = catalog.Monsters["bat_cave"];
             var before = CombatResolver.ResolveCollision(new PlayerStats(10, 10), bat);
-            var after = CombatResolver.ResolveCollision(new PlayerStats(12, 10), bat); // 撿了攻擊寶石 +2
-            Check($"順序有意義：先拿攻擊寶石讓蝙蝠從 {before.ExpectedLoss} 降到 {after.ExpectedLoss}",
+            var after = CombatResolver.ResolveCollision(new PlayerStats(12, 10), bat);
+            Check($"順序有意義：攻擊寶石讓蝙蝠從 {before.ExpectedLoss} 降到 {after.ExpectedLoss}",
                 after.ExpectedLoss < before.ExpectedLoss);
-        }
-
-        /// <summary>
-        /// 宣告的 refs 與實際擺放必須一致——多宣告是殘留（改佈局忘了改清單），
-        /// 少宣告是漏網（驗證器與編輯器會看不到那隻怪）。F02 曾殘留 slime_black。
-        /// </summary>
-        private static void RefsMatchPlacement(string floorId, FloorDefinition floor, string[] monsterRefs, string[] itemRefs)
-        {
-            var placedMonsters = floor.Entities.Where(e => e.Type == EntityType.Monster).Select(e => e.Ref).Distinct().ToHashSet();
-            var placedItems = floor.Entities.Where(e => e.Type == EntityType.Item).Select(e => e.Ref).Distinct().ToHashSet();
-
-            var extraM = monsterRefs.Except(placedMonsters).ToArray();
-            var missingM = placedMonsters.Except(monsterRefs).ToArray();
-            var extraI = itemRefs.Except(placedItems).ToArray();
-            var missingI = placedItems.Except(itemRefs).ToArray();
-
-            Check($"{floorId} 宣告的 refs 與實際擺放一致" +
-                  (extraM.Length + missingM.Length + extraI.Length + missingI.Length > 0
-                      ? $"（多宣告怪 [{string.Join(",", extraM)}] 漏宣告怪 [{string.Join(",", missingM)}] " +
-                        $"多宣告道具 [{string.Join(",", extraI)}] 漏宣告道具 [{string.Join(",", missingI)}]）"
-                      : ""),
-                extraM.Length == 0 && missingM.Length == 0 && extraI.Length == 0 && missingI.Length == 0);
-        }
-
-        /// <summary>
-        /// 守衛有效性：一隻怪若「宣稱」守著某個道具，那在殺掉牠之前該道具就必須拿不到。
-        ///
-        /// 這是驗證器抓不到、只有實際遊玩才會現形的一類錯——F02 第一版的邊緣走廊讓玩家
-        /// 繞過守衛白拿寶石，可解性檢查全綠（繞道「可解且更好解」）。這條檢查補上那個盲點：
-        /// **入場即可達的道具數**若等於全部道具，代表這層沒有任何東西是要用血換的。
-        /// </summary>
-        private static void GuardEffectiveness(string floorId, FloorDefinition floor, GameState entry, GridPos entryPos)
-        {
-            var free = FreelyReachableItems(floor, entry, entryPos);
-            int total = floor.Entities.Count(e => e.Type == EntityType.Item);
-            int guarded = total - free.Count;
-
-            Check($"{floorId} 有 {guarded}/{total} 個道具需要付出代價才拿得到" +
-                  (free.Count > 0 ? $"（免費：{string.Join(",", free)}）" : ""),
-                guarded > 0 && guarded >= total / 2);
-        }
-
-        /// <summary>純地形＋未消耗實體阻擋下，從入場點直接走得到的道具。</summary>
-        private static List<string> FreelyReachableItems(FloorDefinition floor, GameState state, GridPos from)
-        {
-            var seen = new HashSet<GridPos> { from };
-            var q = new Queue<GridPos>();
-            q.Enqueue(from);
-            while (q.Count > 0)
-            {
-                var p = q.Dequeue();
-                foreach (var n in new[]
-                {
-                    new GridPos(p.X + 1, p.Y), new GridPos(p.X - 1, p.Y),
-                    new GridPos(p.X, p.Y + 1), new GridPos(p.X, p.Y - 1),
-                })
-                {
-                    if (seen.Contains(n) || !floor.Grid.CanStep(p, n)) continue;
-                    var e = floor.EntityAt(n);
-                    if (e != null && (e.Type == EntityType.Monster || e.Type == EntityType.Door || e.Type == EntityType.Npc))
-                        continue;
-                    seen.Add(n);
-                    q.Enqueue(n);
-                }
-            }
-            return floor.Entities
-                .Where(e => e.Type == EntityType.Item && seen.Contains(e.Pos))
-                .Select(e => e.Ref).ToList();
-        }
-
-        private static void FloorPairingChecks()
-        {
-            Console.WriteLine("== 跨層規約 ==");
-            RefsMatchPlacement("F00", F00.Build(), F00.MonsterRefs, F00.ItemRefs);
-            RefsMatchPlacement("F01", F01.Build(), F01.MonsterRefs, F01.ItemRefs);
-            RefsMatchPlacement("F02", F02.Build(), F02.MonsterRefs, F02.ItemRefs);
-            GuardEffectiveness("F01", F01.Build(), new GameState { Atk = 10, Def = 10, Hp = 1000 }, F01.SpawnPos);
-            GuardEffectiveness("F02", F02.Build(), new GameState { Atk = 10, Def = 10, Hp = 1400 }, F02.StairsDownPos);
-            // floor-authoring.md：F(n) 的上樓梯與 F(n+1) 的下樓梯同座標
-            Check($"F00 上樓梯 {F00.StairsUpPos} == F01 下樓梯 {F01.StairsDownPos}",
-                F00.StairsUpPos == F01.StairsDownPos);
-            Check($"F01 上樓梯 {F01.StairsUpPos} == F02 下樓梯 {F02.StairsDownPos}",
-                F01.StairsUpPos == F02.StairsDownPos);
-
-            var f00 = F00.Build();
-            Check("F00 的上樓梯實體在宣告座標上",
-                f00.FindStairs(StairsDirection.Up)?.Pos == F00.StairsUpPos);
-            Check("F01 的下樓梯實體在宣告座標上",
-                F01.Build().FindStairs(StairsDirection.Down)?.Pos == F01.StairsDownPos);
-
-            var f01 = F01.Build();
-            var f02 = F02.Build();
-            Check("F01 的上樓梯實體確實在宣告座標上",
-                f01.FindStairs(StairsDirection.Up)?.Pos == F01.StairsUpPos);
-            Check("F02 的下／上樓梯實體都在宣告座標上",
-                f02.FindStairs(StairsDirection.Down)?.Pos == F02.StairsDownPos &&
-                f02.FindStairs(StairsDirection.Up)?.Pos == F02.StairsUpPos);
         }
     }
 }

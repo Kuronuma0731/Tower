@@ -26,9 +26,13 @@ namespace Tower.Verify
             public readonly List<string> Log = new List<string>();
         }
 
-        public static void Run(Catalog catalog)
+        /// <summary>
+        /// 從最底層一路玩到塔頂——**樓層從 registry 來，不寫死**，
+        /// 所以新增一層 JSON 之後遊玩器自動涵蓋它。
+        /// </summary>
+        public static void Run(Catalog catalog, FloorRegistry floors)
         {
-            Console.WriteLine("\n════════ 無頭遊玩：F01 → F02 ════════");
+            Console.WriteLine($"\n════════ 無頭遊玩：{string.Join(" → ", floors.Order)} ════════");
 
             var s = new Sim
             {
@@ -36,8 +40,16 @@ namespace Tower.Verify
                 State = new GameState { Atk = 10, Def = 10, Hp = 1000 },
             };
 
-            PlayFloor(s, F01.Build(), F01.SpawnPos, F01.StairsUpPos, "F01 塔門之下");
-            PlayFloor(s, F02.Build(), F02.StairsDownPos, F02.StairsUpPos, "F02 寶石迴廊");
+            foreach (var id in floors.Order)
+            {
+                var floor = floors[id];
+                var entry = floor.FindStairs(StairsDirection.Down)
+                            ?? floor.Entities.FirstOrDefault(e => e.Type == EntityType.Spawn);
+                var exit = floor.FindStairs(StairsDirection.Up);
+                if (entry == null || exit == null) { Console.WriteLine($"  ⊘ {id} 缺入口或出口，跳過"); continue; }
+
+                PlayFloor(s, floor, entry.Pos, exit.Pos, $"{id} {floor.NameZh}");
+            }
 
             Console.WriteLine("\n──── 通關結算 ────");
             Console.WriteLine($"  生命 {s.State.Hp}　攻擊 {s.State.Atk}　防禦 {s.State.Def}　" +

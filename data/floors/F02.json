@@ -1,0 +1,37 @@
+{
+  "id": "F02",
+  "name_zh": "寶石迴廊",
+  "terrain": [
+    "WWWWWWWWWWWWW",
+    "W...........W",
+    "WWWWW.W.WWWWW",
+    "W...........W",
+    "WWWWW.W.WWWWW",
+    "W...W.W.W...W",
+    "WWW.W...W.WWW",
+    "W...W...W...W",
+    "WWW.W...W.WWW",
+    "W...........W",
+    "WWW.WWWWW.WWW",
+    "W...........W",
+    "WWWWWWWWWWWWW"
+  ],
+  "entities": [
+    { "eid": "F02_sd1", "type": "stairs", "dir": "down", "x": 6, "y": 1 },
+    { "eid": "F02_su1", "type": "stairs", "dir": "up", "x": 6, "y": 11 },
+    { "eid": "F02_d01", "type": "door", "tier": "yellow", "x": 3, "y": 5 },
+    { "eid": "F02_d02", "type": "door", "tier": "yellow", "x": 9, "y": 5 },
+    { "eid": "F02_m01", "type": "monster", "ref": "bat_cave", "x": 2, "y": 5 },
+    { "eid": "F02_i03", "type": "item", "ref": "gem_atk", "x": 1, "y": 5 },
+    { "eid": "F02_m02", "type": "monster", "ref": "slime_red", "x": 10, "y": 5 },
+    { "eid": "F02_i04", "type": "item", "ref": "gem_def", "x": 11, "y": 5 },
+    { "eid": "F02_m03", "type": "monster", "ref": "slime_red", "x": 2, "y": 7 },
+    { "eid": "F02_i01", "type": "item", "ref": "key_yellow", "x": 1, "y": 7 },
+    { "eid": "F02_m04", "type": "monster", "ref": "slime_green", "x": 10, "y": 7 },
+    { "eid": "F02_i02", "type": "item", "ref": "key_yellow", "x": 11, "y": 7 },
+    { "eid": "F02_m05", "type": "monster", "ref": "slime_green", "x": 2, "y": 9 },
+    { "eid": "F02_i05", "type": "item", "ref": "potion_s", "x": 1, "y": 9 },
+    { "eid": "F02_m06", "type": "monster", "ref": "slime_red", "x": 10, "y": 9 },
+    { "eid": "F02_i06", "type": "item", "ref": "potion_s", "x": 11, "y": 9 }
+  ]
+}

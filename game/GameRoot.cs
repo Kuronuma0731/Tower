@@ -25,6 +25,7 @@ namespace Tower.Game
         private HudView _hud;
         private TextBank _text;
         private Catalog _catalog;
+        private FloorRegistry _floors;
 
         private FloorDefinition _floor;
         private GameState _state;
@@ -47,12 +48,43 @@ namespace Tower.Game
         {
             _text = TextBank.Load();
             _catalog = Catalog.Load(TextBank.ReadCsv("monsters.csv"), TextBank.ReadCsv("items.csv"));
+            _floors = LoadFloors();
 
             _view = new ViewFactory();
             _hud = new HudView(_view, _text, this);
 
-            LoadFloor("F00");                    // 從序章層開場，照原版
+            LoadFloor(_floors.Order[0]);         // 從最低層（序章）開場，照原版
             StartDialogue("dlg_f00_prologue");
+        }
+
+        /// <summary>
+        /// 讀 res://data/floors/*.json 建索引。加一層 = 丟一個 JSON 進去，程式不用改。
+        /// FloorRegistry 的建構子會強制檢查樓梯座標對齊，接錯會當場擲例外而不是靜默生出接錯的塔。
+        /// </summary>
+        private static FloorRegistry LoadFloors()
+        {
+            var dir = DirAccess.Open("res://data/floors");
+            if (dir == null) throw new System.InvalidOperationException("找不到 res://data/floors");
+
+            var floors = new List<FloorDefinition>();
+            foreach (var file in dir.GetFiles())
+            {
+                // 匯出後 .json 會被打包成 .json（Godot 不轉換），編輯器內另有 .import 之類要略過
+                if (!file.EndsWith(".json")) continue;
+                floors.Add(FloorJson.Parse(
+                    Godot.FileAccess.GetFileAsString($"res://data/floors/{file}")));
+            }
+            return new FloorRegistry(floors);
+        }
+
+        /// <summary>入口＝下樓梯（座標對齊規約的落點）；沒有下樓梯的層用 spawn（僅序章層）。</summary>
+        private static GridPos EntryOf(FloorDefinition floor)
+        {
+            var down = floor.FindStairs(StairsDirection.Down);
+            if (down != null) return down.Pos;
+            foreach (var e in floor.Entities)
+                if (e.Type == EntityType.Spawn) return e.Pos;
+            throw new System.InvalidOperationException($"{floor.Id} 既沒有下樓梯也沒有 spawn");
         }
 
         // ---- 樓層 ----
@@ -74,21 +106,11 @@ namespace Tower.Game
             _hud.HideBattle();
 
             var carried = _state;                // 換樓層時屬性與道具要帶著走
-            _floor = id switch
-            {
-                "F00" => F00.Build(),
-                "F02" => F02.Build(),
-                _ => F01.Build(),
-            };
+            _floor = _floors[id];
 
             _state = carried ?? new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv 鏡像
             _state.CurrentFloor = id;
-            _state.Position = entryPos ?? id switch
-            {
-                "F00" => F00.SpawnPos,
-                "F02" => F02.StairsDownPos,
-                _ => F01.SpawnPos,
-            };
+            _state.Position = entryPos ?? EntryOf(_floor);
 
             _boardRoot = new Node2D { Position = BoardOrigin, Scale = new Vector2(BoardScale, BoardScale) };
             AddChild(_boardRoot);
@@ -237,19 +259,18 @@ namespace Tower.Game
 
             // 踏上塔門那一刻的宣言——原版的收尾，說完才進塔
             if (_state.CurrentFloor == "F00" && here.Stairs == StairsDirection.Up
-                && !_dialogueSeen.Contains("dlg_f00_gate"))
+&& !_dialogueSeen.Contains("dlg_f00_gate"))
             {
                 StartDialogue("dlg_f00_gate");
                 return;
             }
 
-            // 座標對齊規約：落在對應的另一道樓梯上
-            switch (_state.CurrentFloor, here.Stairs)
+            // 座標對齊規約由 FloorRegistry 統一處理——樓層編號相鄰即相接，
+            // 落點自動取對面那道樓梯。加樓層不必碰這裡。
+            if (_floors.TryTravel(_state.CurrentFloor, here.Stairs, out string toId, out var landing))
             {
-                case ("F00", StairsDirection.Up): LoadFloor("F01", F01.StairsDownPos); return;
-                case ("F01", StairsDirection.Down): LoadFloor("F00", F00.StairsUpPos); return;
-                case ("F01", StairsDirection.Up): LoadFloor("F02", F02.StairsDownPos); return;
-                case ("F02", StairsDirection.Down): LoadFloor("F01", F01.StairsUpPos); return;
+                LoadFloor(toId, landing);
+                return;
             }
             _hud.Toast(_text["msg_demo_end"], 5);
         }
@@ -467,7 +488,8 @@ namespace Tower.Game
             _hud.HideDialogue();
 
             // 塔門宣言講完就進塔——否則玩家會站在樓梯上，而樓梯只在「踏入」時觸發
-            if (finished == "dlg_f00_gate") LoadFloor("F01", F01.StairsDownPos);
+            if (finished == "dlg_f00_gate" && _floors.TryTravel(_state.CurrentFloor, StairsDirection.Up, out var toId, out var landing))
+                LoadFloor(toId, landing);
         }
     }
 }

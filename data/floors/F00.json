@@ -1,0 +1,26 @@
+{
+  "id": "F00",
+  "name_zh": "塔外",
+  "terrain": [
+    "WWWWWWWWWWWWW",
+    "WWWWWW.WWWWWW",
+    "WWWWWW.WWWWWW",
+    "W...........W",
+    "W...........W",
+    "W...........W",
+    "W...........W",
+    "W...........W",
+    "WWWWW.W.WWWWW",
+    "W.....W.....W",
+    "W.WWWWWWWWWWW",
+    "W...........W",
+    "WWWWWWWWWWWWW"
+  ],
+  "entities": [
+    { "eid": "F00_sp1", "type": "spawn", "x": 6, "y": 1 },
+    { "eid": "F00_su1", "type": "stairs", "dir": "up", "x": 6, "y": 11 },
+    { "eid": "F00_n01", "type": "npc", "dialogue": "dlg_f00_veteran", "x": 3, "y": 5 },
+    { "eid": "F00_m01", "type": "monster", "ref": "slime_green", "x": 10, "y": 9 },
+    { "eid": "F00_i01", "type": "item", "ref": "potion_s", "x": 11, "y": 9 }
+  ]
+}

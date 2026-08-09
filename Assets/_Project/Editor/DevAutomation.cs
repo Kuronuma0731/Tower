@@ -38,6 +38,45 @@ namespace Tower.EditorDev
             EditorApplication.Exit(0);
         }
 
+        /// <summary>
+        /// 無頭截圖：`-batchmode -executeMethod Tower.EditorDev.DevAutomation.Screenshot`
+        /// 會在不進 Play 的情況下建好場景、用 RenderTexture 拍一張 PNG 到 Logs/shot.png。
+        ///
+        /// 為什麼要這個：HUD 是**視覺**工作，而本專案已經三次「程式編得過、畫面上卻看不到」
+        /// （字型抓不到、Game 視窗縮放裁切、螢幕空間 UI 偏移）。編譯通過證明不了版面對。
+        /// </summary>
+        public static void Screenshot()
+        {
+            const int width = 1920, height = 1080;
+
+            // Start() 在編輯模式不會被呼叫，反射直接叫；場景由 Bootstrap 自己建好（含相機）
+            var host = new GameObject("ShotHost");
+            var boot = host.AddComponent<Tower.Game.GamePreviewBootstrap>();
+            typeof(Tower.Game.GamePreviewBootstrap)
+                .GetMethod("Start", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.Invoke(boot, null);
+
+            var cam = Object.FindFirstObjectByType<Camera>();
+            if (cam == null) { Debug.LogError("[TowerDev] 場景裡沒有相機，截圖中止"); EditorApplication.Exit(1); return; }
+
+            var rt = new RenderTexture(width, height, 24, RenderTextureFormat.ARGB32);
+            cam.targetTexture = rt;
+            cam.Render();
+
+            RenderTexture.active = rt;
+            var tex = new Texture2D(width, height, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, width, height), 0, 0);
+            tex.Apply();
+            RenderTexture.active = null;
+            cam.targetTexture = null;
+
+            System.IO.Directory.CreateDirectory("Logs");
+            System.IO.File.WriteAllBytes("Logs/shot.png", tex.EncodeToPNG());
+            Debug.Log($"[TowerDev] 截圖已存 Logs/shot.png（{width}x{height}）");
+
+            EditorApplication.Exit(0);
+        }
+
         private static int _attempts;
 
         private static void ResetZoomSoon()

@@ -151,9 +151,9 @@ namespace Tower.Game
 
             RefreshHud();
             RefreshPreviews();
-            _hud.Toast(gallery
-                ? $"{_text["gallery_name"]}　{_text["msg_gallery_hint"]}"
-                : $"{FloorLabel()}　{_floor.NameZh}", 3.2f);
+            // 樓層名已常駐在橫幅上，這裡再報一次只是拿字擋住棋盤——展示層才需要額外說明
+            if (gallery)
+                _hud.Toast($"{_text["gallery_name"]}　{_text["msg_gallery_hint"]}", 3.2f);
         }
 
         private void BuildBoard()
@@ -487,8 +487,10 @@ namespace Tower.Game
         private void ApplyHeroSprite()
         {
             int frame = SpriteMap.WalkCycle[_heroStep % SpriteMap.WalkCycle.Length];
-            _heroRenderer.sprite = _view.GetSprite(SpriteMap.Hero(_heroDir, frame));
+            var sprite = _view.GetSprite(SpriteMap.Hero(_heroDir, frame));
+            _heroRenderer.sprite = sprite;
             _heroRenderer.flipX = false; // 素材四方向齊備，不需鏡像
+            _hud?.SetPortrait(sprite);   // 角色欄的頭像＝棋盤上的那個小人，永遠同步
         }
 
         private void FloatText(in GridPos pos, string text, Color color, float size, float xOffset)

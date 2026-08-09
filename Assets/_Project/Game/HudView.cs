@@ -19,8 +19,11 @@ namespace Tower.Game
         private readonly TextBank _text;
 
         private TextMesh _floorBanner;
-        private TextMesh _status;
+        private SpriteRenderer _portrait;
+        private readonly TextMesh[] _statValues = new TextMesh[StatRows];
         private readonly TextMesh[] _keyCounts = new TextMesh[4];
+
+        private const int StatRows = 5; // 生命/攻擊/防禦/金幣/經驗
 
         private GameObject _receipt;
         private TextMesh _receiptTitle, _receiptLeft, _receiptRight, _receiptLoss, _receiptReward;
@@ -49,14 +52,7 @@ namespace Tower.Game
             _view.MakeBackplate(new Vector3(0, 6.85f, 0), 4.2f, 0.95f, 0.9f, 90, "banner_bg");
             _floorBanner = _view.MakeText(null, new Vector3(0, 6.85f, 0), 0.55f, TextAnchor.MiddleCenter, 100);
 
-            // 狀態欄（左上）
-            _view.MakeBackplate(new Vector3(-10.25f, 3.1f, 0), 5.9f, 6.9f, 0.84f, 90, "panel_status");
-            var portrait = _view.MakeSprite(SpriteMap.Hero(SpriteMap.HeroDirDown, 0),
-                new Vector3(-12.05f, 5.35f, 0), 95, "portrait");
-            portrait.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
-            _status = _view.MakeText(null, new Vector3(-12.9f, 4.15f, 0), 0.52f, TextAnchor.UpperLeft, 100);
-            _status.alignment = TextAlignment.Left;
-            _status.lineSpacing = 1.15f;
+            BuildCharacterPanel();
 
             // 鑰匙欄（左下）
             _view.MakeBackplate(new Vector3(-10.25f, -3.55f, 0), 5.9f, 5.5f, 0.84f, 90, "panel_keys");
@@ -80,6 +76,66 @@ namespace Tower.Game
             _toast.gameObject.SetActive(false);
 
             BuildDialogue();
+        }
+
+        /// <summary>
+        /// 角色欄（左上）——原版左欄的長相：頭像＋名字在上，數值對齊成一欄在下。
+        ///
+        /// 兩個刻意的取法：
+        /// ① 頭像**跟著實際走路方向與步伐換幀**（<see cref="SetPortrait"/>），不是一張固定圖——
+        ///    玩家的角色感來自「那個小人就是我」，靜止的大頭貼給不了。
+        /// ② 數字**靠右對齊成一欄**。標籤與數值混在同一行時（舊版用全形空白隔開）數字位置
+        ///    會隨字數浮動，掃一眼讀不出來；魔塔要頻繁比對數值，對齊比排版好看更重要。
+        /// </summary>
+        private void BuildCharacterPanel()
+        {
+            _view.MakeBackplate(new Vector3(-10.25f, 3.1f, 0), 5.9f, 6.9f, 0.84f, 90, "panel_status");
+
+            var portrait = _view.MakeSprite(SpriteMap.Hero(SpriteMap.HeroDirDown, SpriteMap.WalkCycle[0]),
+                new Vector3(-12.15f, 5.2f, 0), 95, "portrait");
+            portrait.transform.localScale = new Vector3(2f, 2f, 1f);
+            _portrait = portrait.GetComponent<SpriteRenderer>();
+
+            var heroName = _view.MakeText(null, new Vector3(-11.15f, 5.35f, 0), 0.5f, TextAnchor.MiddleLeft, 100);
+            heroName.text = _text["lbl_hero"];
+            heroName.color = new Color(1f, 0.85f, 0.4f);
+            heroName.alignment = TextAlignment.Left;
+
+            // 有現成 sprite 的三項戰鬥數值配圖示；金幣/經驗只有文字標籤
+            string[] icons =
+            {
+                SpriteMap.Item["potion_s"], SpriteMap.Item["gem_atk"], SpriteMap.Item["gem_def"], null, null,
+            };
+            string[] labels =
+            {
+                _text["lbl_hp"], _text["lbl_atk"], _text["lbl_def"], _text["lbl_gold"], _text["lbl_exp"],
+            };
+            var colors = new[]
+            {
+                new Color(1f, 0.55f, 0.55f),   // 生命：紅
+                new Color(1f, 0.78f, 0.45f),   // 攻擊：橙
+                new Color(0.6f, 0.8f, 1f),     // 防禦：藍
+                new Color(1f, 0.9f, 0.5f),     // 金幣：金
+                new Color(0.8f, 0.75f, 1f),    // 經驗：紫
+            };
+
+            for (int i = 0; i < StatRows; i++)
+            {
+                float y = 3.4f - i * 0.76f;
+                if (icons[i] != null)
+                {
+                    var ic = _view.MakeSprite(icons[i], new Vector3(-12.75f, y, 0), 95, $"stat_icon_{i}");
+                    ic.transform.localScale = new Vector3(0.7f, 0.7f, 1f);
+                }
+                var lb = _view.MakeText(null, new Vector3(-12.2f, y, 0), 0.44f, TextAnchor.MiddleLeft, 100);
+                lb.text = labels[i];
+                lb.alignment = TextAlignment.Left;
+                lb.color = new Color(0.85f, 0.85f, 0.9f);
+
+                _statValues[i] = _view.MakeText(null, new Vector3(-7.65f, y, 0), 0.5f, TextAnchor.MiddleRight, 100);
+                _statValues[i].alignment = TextAlignment.Right;
+                _statValues[i].color = colors[i];
+            }
         }
 
         /// <summary>戰報＝打完的收據，不是詢問框（D7 不設確認，戰前判斷交給常駐預覽）。</summary>
@@ -138,14 +194,19 @@ namespace Tower.Game
         public void SetFloor(string label, string nameZh)
             => _floorBanner.text = string.IsNullOrEmpty(nameZh) ? label : $"{label}　{nameZh}";
 
+        /// <summary>頭像跟著棋盤上的主角同步轉向與換幀——由 Bootstrap 在每次換圖時呼叫。</summary>
+        public void SetPortrait(Sprite sprite)
+        {
+            if (sprite != null) _portrait.sprite = sprite;
+        }
+
         public void SetStats(GameState s)
         {
-            _status.text =
-                $"{_text["lbl_hp"]}　{s.Hp}\n" +
-                $"{_text["lbl_atk"]}　{s.Atk}\n" +
-                $"{_text["lbl_def"]}　{s.Def}\n" +
-                $"{_text["lbl_gold"]}　{s.Gold}\n" +
-                $"{_text["lbl_exp"]}　{s.Exp}";
+            _statValues[0].text = s.Hp.ToString();
+            _statValues[1].text = s.Atk.ToString();
+            _statValues[2].text = s.Def.ToString();
+            _statValues[3].text = s.Gold.ToString();
+            _statValues[4].text = s.Exp.ToString();
             _keyCounts[0].text = $"×  {s.KeysYellow}";
             _keyCounts[1].text = $"×  {s.KeysBlue}";
             _keyCounts[2].text = $"×  {s.KeysRed}";

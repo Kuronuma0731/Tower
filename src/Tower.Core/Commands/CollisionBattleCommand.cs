@@ -22,6 +22,24 @@ namespace Tower.Core.Commands
             _expDrop = monster.ExpDrop;
         }
 
+        /// <summary>4f9b5b586a945e8f521753168b8053d6Ff08CommandCodecFf093002</summary>
+        public string Eid => _eid;
+        public int HpLoss => _hpLoss;
+        public int GoldDrop => _goldDrop;
+        public int ExpDrop => _expDrop;
+
+        /// <summary>5f9e5df25b5876845dee503c91cd5efaFf088f0951655b586a94Ff093002</summary>
+        public static CollisionBattleCommand FromDeltas(string eid, int hpLoss, int gold, int exp)
+            => new CollisionBattleCommand(eid, hpLoss, gold, exp);
+
+        private CollisionBattleCommand(string eid, int hpLoss, int gold, int exp)
+        {
+            _eid = eid;
+            _hpLoss = hpLoss;
+            _goldDrop = gold;
+            _expDrop = exp;
+        }
+
         public void Apply(GameState state)
         {
             state.Hp -= _hpLoss;

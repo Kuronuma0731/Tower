@@ -6,6 +6,7 @@ using Tower.Core.Commands;
 using Tower.Core.Data;
 using Tower.Core.Floors;
 using Tower.Core.Grid;
+using Tower.Core.Save;
 
 namespace Tower.Game
 {
@@ -28,8 +29,12 @@ namespace Tower.Game
         private FloorRegistry _floors;
 
         private FloorDefinition _floor;
-        private GameState _state;
-        private readonly List<IGameCommand> _commands = new List<IGameCommand>();
+        /// <summary>
+        /// 存檔就是遊戲狀態本身（D7）——快照、指令流、回溯全在裡面。
+        /// 不另外拿一份 _state，否則兩份會漂移。
+        /// </summary>
+        private SaveGame _save;
+        private GameState _state => _save.State;
 
         private Node2D _boardRoot;
         private readonly Dictionary<string, Node2D> _entityViews = new Dictionary<string, Node2D>();
@@ -56,8 +61,19 @@ namespace Tower.Game
             // 虛擬方向鍵（D9）：左下角，橫向雙手持握時落在左拇指下
             TouchPad.Create(this, new Vector2(150, 580)).Stepped += Step;
 
-            LoadFloor(_floors.Order[0]);         // 從最低層（序章）開場，照原版
-            StartDialogue("dlg_f00_prologue");
+            var loaded = SaveFile.Read();
+            if (loaded != null && _floors.Has(loaded.State.CurrentFloor))
+            {
+                _save = loaded;
+                LoadFloor(_save.State.CurrentFloor, _save.State.Position);
+                _hud.Toast(_text["msg_loaded"], 2.0);
+            }
+            else
+            {
+                _save = new SaveGame(new GameState { Atk = 10, Def = 10, Hp = 1000 }); // data/balance.csv 鏡像
+                LoadFloor(_floors.Order[0]);      // 從最低層（序章）開場，照原版
+                StartDialogue("dlg_f00_prologue");
+            }
         }
 
         /// <summary>
@@ -102,18 +118,18 @@ namespace Tower.Game
             _entityViews.Clear();
             _previewLabels.Clear();
             _idle.Clear();
-            _commands.Clear();
             _busy = false;
             _activeDialogue = null;
             _hud.HideDialogue();
             _hud.HideBattle();
 
-            var carried = _state;                // 換樓層時屬性與道具要帶著走
             _floor = _floors[id];
-
-            _state = carried ?? new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv 鏡像
-            _state.CurrentFloor = id;
             _state.Position = entryPos ?? EntryOf(_floor);
+
+            // 進入樓層＝拍快照、清空指令流（D7 外層防護的建立點），然後落地存檔。
+            // 屬性與道具留在 _save.State 裡，換層自然帶著走。
+            _save.EnterFloor(id);
+            SaveFile.Write(_save);
 
             _boardRoot = new Node2D { Position = BoardOrigin, Scale = new Vector2(BoardScale, BoardScale) };
             AddChild(_boardRoot);
@@ -199,6 +215,8 @@ namespace Tower.Game
 
             // 用事件判斷而不是輪詢 Input：_UnhandledInput 是事件回呼，
             // 在裡面問全域輸入狀態會和事件流錯開（同一幀多事件時可能重複觸發或漏掉）
+            if (ev.IsActionPressed("undo")) { UndoStep(); return; }
+
             if (ev.IsActionPressed("move_up")) Step(0, -1);
             else if (ev.IsActionPressed("move_down")) Step(0, 1);
             else if (ev.IsActionPressed("move_left")) Step(-1, 0);
@@ -298,8 +316,63 @@ namespace Tower.Game
 
         private void Apply(IGameCommand cmd)
         {
-            cmd.Apply(_state);
-            _commands.Add(cmd);          // D7：所有狀態變更都是指令，回溯才retrofit得進來
+            _save.Apply(cmd);            // D7：所有狀態變更都是指令，回溯才有東西可退
+            SaveFile.Write(_save);       // 指令流也要落地，否則「快照＋重放」的下半截等於不存在
+            RefreshHud();
+            RefreshPreviews();
+        }
+
+        /// <summary>
+        /// 行動平台會在沒有預警的情況下殺掉背景 App，桌面版則有關窗事件。
+        /// 兩者都在這裡補一次存檔——每步都存已經涵蓋大部分情況，這是保險。
+        /// </summary>
+        public override void _Notification(int what)
+        {
+            if (what == NotificationWMCloseRequest
+                || what == NotificationApplicationPaused
+                || what == NotificationWMGoBackRequest)
+            {
+                if (_save != null) SaveFile.Write(_save);
+            }
+        }
+
+        /// <summary>
+        /// 回溯一步（D7 內層）——**消耗一顆沙漏**。
+        ///
+        /// 收費的閘門在這裡，不在 Core：`SaveGame.UndoOne` 只提供機制。這條分工是刻意的，
+        /// 因為驗證器要在不談收費的前提下推演路徑。
+        ///
+        /// D7「誤觸不設防」：不問「確定要回溯嗎」。沙漏沒了就是沒了。
+        /// </summary>
+        private void UndoStep()
+        {
+            if (_busy || _activeDialogue != null) return;
+
+            if (_state.Hourglasses <= 0) { _hud.Toast(_text["msg_no_hourglass"]); return; }
+            if (_save.UndoDepth == 0) { _hud.Toast(_text["msg_nothing_to_undo"]); return; }
+
+            _state.Hourglasses--;
+            _save.UndoOne();
+
+            // 回溯可能讓已消耗的實體復活（怪、道具、門），整層重建最單純也最不會出錯
+            RebuildBoard();
+            SaveFile.Write(_save);
+            _hud.Toast(_text["msg_undone"]);
+        }
+
+        /// <summary>就地重建棋盤與主角（回溯後用）——不動 _save，只重畫。</summary>
+        private void RebuildBoard()
+        {
+            _boardRoot?.QueueFree();
+            _entityViews.Clear();
+            _previewLabels.Clear();
+            _idle.Clear();
+
+            _boardRoot = new Node2D { Position = BoardOrigin, Scale = new Vector2(BoardScale, BoardScale) };
+            AddChild(_boardRoot);
+            _view.Board = _boardRoot;
+            BuildBoard();
+            BuildHero();
             RefreshHud();
             RefreshPreviews();
         }

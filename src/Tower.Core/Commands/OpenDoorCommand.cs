@@ -8,6 +8,10 @@ namespace Tower.Core.Commands
         private readonly string _eid;
         private readonly KeyTier _tier;
 
+        /// <summary>4f9b5b586a945e8f521753168b8053d6Ff08CommandCodecFf093002</summary>
+        public string Eid => _eid;
+        public KeyTier Tier => _tier;
+
         public OpenDoorCommand(string eid, KeyTier tier)
         {
             _eid = eid;

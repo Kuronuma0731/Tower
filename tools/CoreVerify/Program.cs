@@ -46,6 +46,7 @@ namespace Tower.Verify
             CommandChecks();
             GridChecks();
             SolverChecks(catalog);
+            SaveChecks.Run(catalog, Check);
             CombatAnchors(catalog);
             var floors = FloorChecks.Run(repo, catalog, Check);
 

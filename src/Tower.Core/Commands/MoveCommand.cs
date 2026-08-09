@@ -8,6 +8,10 @@ namespace Tower.Core.Commands
         private readonly GridPos _from;
         private readonly GridPos _to;
 
+        /// <summary>4f9b5b586a945e8f521753168b8053d6Ff08CommandCodecFf093002</summary>
+        public GridPos From => _from;
+        public GridPos To => _to;
+
         public MoveCommand(GridPos from, GridPos to)
         {
             _from = from;

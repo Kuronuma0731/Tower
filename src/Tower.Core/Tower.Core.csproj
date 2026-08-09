@@ -23,6 +23,7 @@
     <Compile Include="Data/*.cs" />
     <Compile Include="Floors/*.cs" />
     <Compile Include="Grid/*.cs" />
+    <Compile Include="Save/*.cs" />
     <Compile Include="Simulation/*.cs" />
   </ItemGroup>
 </Project>

@@ -59,8 +59,10 @@ namespace Tower.Core.Floors
                 new FloorEntity("F01_i02", EntityType.Item, new GridPos(9, 11), @ref: "key_yellow"),
                 new FloorEntity("F01_i03", EntityType.Item, new GridPos(1, 11), @ref: "potion_s"),
                 new FloorEntity("F01_i04", EntityType.Item, new GridPos(11, 11), @ref: "potion_s"),
-                // 四角探索獎勵——原版的密度來自這種「走到底就有東西」
-                new FloorEntity("F01_i05", EntityType.Item, new GridPos(1, 1), @ref: "gem_atk"),
+                // 四角探索獎勵——原版的密度來自這種「走到底就有東西」。
+                // 這裡刻意**不放寶石**：寶石是 2F 的機制（mechanics.md 引入表），
+                // 1F 已經要教門/鑰匙/怪物/血瓶/樓梯/預覽/D13 牆，再加一種就超載了。
+                new FloorEntity("F01_i05", EntityType.Item, new GridPos(1, 1), @ref: "potion_s"),
                 new FloorEntity("F01_i06", EntityType.Item, new GridPos(11, 3), @ref: "potion_s"),
 
                 // 主路上的怪都可繞過——第一層不強迫戰鬥
@@ -92,7 +94,7 @@ namespace Tower.Core.Floors
         /// <summary>本層引用到的道具 id。數值同樣來自 Catalog（data/items.csv）。</summary>
         public static readonly string[] ItemRefs =
         {
-            "key_yellow", "potion_s", "gem_atk",
+            "key_yellow", "potion_s",
         };
     }
 }

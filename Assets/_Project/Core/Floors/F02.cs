@@ -25,7 +25,7 @@ namespace Tower.Core.Floors
 
         public static readonly string[] MonsterRefs =
         {
-            "slime_green", "slime_red", "bat_cave", "skel_gray", "slime_black",
+            "slime_green", "slime_red", "bat_cave", "skel_gray",
         };
 
         public static readonly string[] ItemRefs =

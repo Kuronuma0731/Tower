@@ -47,13 +47,15 @@ Core gameplay:
 - Floor teleportation
 - Puzzle solving
 
-Locked decisions D1–D13 (see `CONTEXT.md` for rationale and accepted costs). The ones most often worth stress-testing at their edges:
+Locked decisions D1–D15 (see `CONTEXT.md` for rationale and accepted costs). The ones most often worth stress-testing at their edges:
 
 - **D1 Pure collision combat** — Bosses are collision battles too; drama must come from stats + trait combos.
 - **D7 Undo costs a consumable; misclicks have NO free remedy anywhere, menus included** — the riskiest UX decision in the project.
 - **D11 Fully closed economy** — monsters never respawn; the reachability solver is a lifeline, not a tool.
 - **D12 Solo dev + AI** — every scope claim must survive this denominator.
 - **D13 Lethal collisions are walls** — the game has no death system; lethal tiles need unmistakable visual language.
+- **D14 Pixel art, landscape** — third-party asset pack; commercial licensing is unresolved.
+- **D15 Evasion is fixed-count, random-order** — players see misses, but totals stay exact so the preview, D13 and the solver survive.
 
 ---
 

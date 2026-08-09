@@ -226,8 +226,9 @@ namespace Tower.Verify
             var start = new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv
             var result = new FloorSolver(F01.Build(), catalog.Monsters, catalog.Items)
                 .Solve(start, F01.SpawnPos, F01.StairsUpPos);
-            Check($"可解 {result.Status} exitHp={result.BestExitHp} nodes={result.NodesExplored}（期望 1290：先撿寶石再打）",
-                result.Status == SolverStatus.Solvable && result.BestExitHp == 1290);
+            // 1000 − 132（蝙蝠）+ 600（三瓶各 200）= 1468。右壁龕那瓶被黑史萊姆擋住拿不到。
+            Check($"可解 {result.Status} exitHp={result.BestExitHp} nodes={result.NodesExplored}（期望 1468）",
+                result.Status == SolverStatus.Solvable && result.BestExitHp == 1468);
 
             var black = catalog.Monsters["slime_black"];
             var now = CombatResolver.ResolveCollision(new PlayerStats(10, 10), black);
@@ -247,8 +248,8 @@ namespace Tower.Verify
             Check("引用的怪與道具都在表內",
                 F02.MonsterRefs.All(catalog.Monsters.ContainsKey) && F02.ItemRefs.All(catalog.Items.ContainsKey));
 
-            // 進入 F02 的狀態＝走完 F01 的最佳線（含那顆攻擊寶石）
-            var arrival = new GameState { Atk = 12, Def = 10, Hp = 1290 };
+            // 進入 F02 的狀態＝走完 F01 最佳線（1F 沒有寶石，故攻防仍是初始值）
+            var arrival = new GameState { Atk = 10, Def = 10, Hp = 1468 };
             var result = new FloorSolver(F02.Build(), catalog.Monsters, catalog.Items)
                 .Solve(arrival, F02.StairsDownPos, F02.StairsUpPos);
             Check($"可解 {result.Status} exitHp={result.BestExitHp} nodes={result.NodesExplored}",
@@ -256,15 +257,39 @@ namespace Tower.Verify
 
             // 本層的教學：先拿攻擊寶石，右翼的蝙蝠就變便宜
             var bat = catalog.Monsters["bat_cave"];
-            var before = CombatResolver.ResolveCollision(new PlayerStats(12, 10), bat);
-            var after = CombatResolver.ResolveCollision(new PlayerStats(14, 10), bat); // +2 攻
+            var before = CombatResolver.ResolveCollision(new PlayerStats(10, 10), bat);
+            var after = CombatResolver.ResolveCollision(new PlayerStats(12, 10), bat); // 撿了攻擊寶石 +2
             Check($"順序有意義：先拿攻擊寶石讓蝙蝠從 {before.ExpectedLoss} 降到 {after.ExpectedLoss}",
                 after.ExpectedLoss < before.ExpectedLoss);
+        }
+
+        /// <summary>
+        /// 宣告的 refs 與實際擺放必須一致——多宣告是殘留（改佈局忘了改清單），
+        /// 少宣告是漏網（驗證器與編輯器會看不到那隻怪）。F02 曾殘留 slime_black。
+        /// </summary>
+        private static void RefsMatchPlacement(string floorId, FloorDefinition floor, string[] monsterRefs, string[] itemRefs)
+        {
+            var placedMonsters = floor.Entities.Where(e => e.Type == EntityType.Monster).Select(e => e.Ref).Distinct().ToHashSet();
+            var placedItems = floor.Entities.Where(e => e.Type == EntityType.Item).Select(e => e.Ref).Distinct().ToHashSet();
+
+            var extraM = monsterRefs.Except(placedMonsters).ToArray();
+            var missingM = placedMonsters.Except(monsterRefs).ToArray();
+            var extraI = itemRefs.Except(placedItems).ToArray();
+            var missingI = placedItems.Except(itemRefs).ToArray();
+
+            Check($"{floorId} 宣告的 refs 與實際擺放一致" +
+                  (extraM.Length + missingM.Length + extraI.Length + missingI.Length > 0
+                      ? $"（多宣告怪 [{string.Join(",", extraM)}] 漏宣告怪 [{string.Join(",", missingM)}] " +
+                        $"多宣告道具 [{string.Join(",", extraI)}] 漏宣告道具 [{string.Join(",", missingI)}]）"
+                      : ""),
+                extraM.Length == 0 && missingM.Length == 0 && extraI.Length == 0 && missingI.Length == 0);
         }
 
         private static void FloorPairingChecks()
         {
             Console.WriteLine("== 跨層規約 ==");
+            RefsMatchPlacement("F01", F01.Build(), F01.MonsterRefs, F01.ItemRefs);
+            RefsMatchPlacement("F02", F02.Build(), F02.MonsterRefs, F02.ItemRefs);
             // floor-authoring.md：F(n) 的上樓梯與 F(n+1) 的下樓梯同座標
             Check($"F01 上樓梯 {F01.StairsUpPos} == F02 下樓梯 {F02.StairsDownPos}",
                 F01.StairsUpPos == F02.StairsDownPos);

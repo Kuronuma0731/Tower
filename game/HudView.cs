@@ -48,6 +48,9 @@ namespace Tower.Game
         public Vector2 BattleHeroAnchor => _battleHeroIcon.Position;
         public Node BattleLayer => _battle;
 
+        /// <summary>整層 HUD 的顯示開關——進關卡編輯器時要收起來，兩套畫面疊在一起讀不了。</summary>
+        public bool Visible { get => _layer.Visible; set => _layer.Visible = value; }
+
         public HudView(ViewFactory view, TextBank text, Node root)
         {
             _view = view;

@@ -99,7 +99,8 @@ namespace Tower.Core.Data
                     healHp: Csv.Int(c[4]),
                     atkBonus: Csv.Int(c[5]),
                     defBonus: Csv.Int(c[6]),
-                    undoSteps: Csv.Int(c[7]));
+                    undoSteps: Csv.Int(c[7]),
+                    nameZh: c[1].Trim());
             }
             return result;
         }

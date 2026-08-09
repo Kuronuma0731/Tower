@@ -43,6 +43,7 @@ namespace Tower.Game
         private readonly List<(Sprite2D node, string monsterId, float phase)> _idle = new List<(Sprite2D, string, float)>();
         private Sprite2D _hero;
         private TouchPad _pad;
+        private EditorMode _editor;
         private int _heroDir, _heroStep;
 
         private bool _busy;
@@ -101,6 +102,30 @@ namespace Tower.Game
                     Godot.FileAccess.GetFileAsString($"res://data/floors/{file}")));
             }
             return new FloorRegistry(floors);
+        }
+
+        /// <summary>
+        /// 開關關卡編輯器。開啟時把遊戲的棋盤與 HUD 收起來——兩套畫面疊在一起沒有意義，
+        /// 而且編輯器要的是「這層的原貌」而不是玩到一半的狀態。
+        /// </summary>
+        private void ToggleEditor()
+        {
+            _editor ??= new EditorMode(this, _view, _text, _catalog, _floors);
+
+            if (_editor.Active)
+            {
+                _editor.Close();
+                _hud.Visible = true;
+                LoadFloor(_state.CurrentFloor, _state.Position);   // 回遊戲，重畫棋盤
+                _pad.Visible = true;
+                return;
+            }
+
+            _boardRoot?.QueueFree();
+            _boardRoot = null;
+            _pad.Visible = false;
+            _hud.Visible = false;
+            _editor.Open(_state.CurrentFloor);
         }
 
         /// <summary>方向鍵中心：貼左下，離邊留出安全距離（瀏海／圓角／手勢列）。</summary>
@@ -237,6 +262,16 @@ namespace Tower.Game
 
         public override void _UnhandledInput(InputEvent ev)
         {
+            // F2：開關關卡編輯器（floor-authoring.md ③）。開發工具，不是玩家功能。
+            if (ev.IsActionPressed("editor_toggle")) { ToggleEditor(); return; }
+
+            if (_editor != null && _editor.Active)
+            {
+                if (ev is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click)
+                    _editor.Paint(_editor.GridAt(click.Position));
+                return;
+            }
+
             if (_activeDialogue != null)
             {
                 // 只吃「按下」，不吃放開——否則一次敲鍵會翻兩頁

@@ -56,3 +56,6 @@ msg_loaded,已從存檔繼續
 msg_undone,回溯一步（沙漏 −1）
 msg_no_hourglass,沒有沙漏了
 msg_nothing_to_undo,已經在樓層入口
+lbl_editor,關卡編輯器
+lbl_verify,驗證
+lbl_save,輸出 JSON

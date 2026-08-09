@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://c6fb6it2bjviu"
+
+[deps]
+
+files=["res://data/shops.item.translation", "res://data/shops.base.translation", "res://data/shops.price.translation"]
+
+source_file="res://data/shops.csv"
+dest_files=["res://data/shops.item.translation", "res://data/shops.base.translation", "res://data/shops.price.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

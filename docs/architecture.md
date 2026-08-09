@@ -1,68 +1,53 @@
-# Tower — Unity 架構建議
+# Tower — Godot 架構
 
-前提決策見 [`CONTEXT.md`](../CONTEXT.md)。這份文件講**怎麼蓋**，不重述**為什麼**。
+引擎：**Godot 4.7（.NET / C#）**（D16）。發行目標：Android + iOS 買斷制 App（D2）＋ **Steam 桌面版**；**不做網頁版**。
 
 ---
 
-## 一條總原則
+## 第一條規則，也是唯一不能妥協的一條
 
-**遊戲邏輯不得依賴 UnityEngine。**
+**遊戲邏輯不得依賴遊戲引擎。**
 
-塔的規則——移動、鑰匙門、傷害公式、資源消耗——全部是純 C#，不繼承 `MonoBehaviour`、不碰 `Transform`、不讀 `Time.deltaTime`。Unity 只負責「畫出來」與「收輸入」。
+塔的規則——移動、鑰匙門、傷害公式、資源消耗——全部是純 C#，不繼承 `Node`、不碰 `Transform2D`、不讀 `delta`。Godot 只負責「畫出來」與「收輸入」。
 
-理由不是潔癖，是三件很實際的事：
+三個理由：
 
-1. **可達性驗證器**要在沒有 Unity 執行環境的情況下，幾秒內模擬幾千條路徑。邏輯綁在 MonoBehaviour 上就辦不到。D11 封閉經濟下驗證器是生命線，這條理由的權重是三條裡最高的。
-2. 數值測試可以用一般 NUnit 跑，不需要 PlayMode（PlayMode 測試慢到你不會想跑）。
-3. **傷害預覽**和實戰必須跑同一個函式——邏輯層純粹，預覽才永遠不會騙人。
+1. **可達性驗證器**要在沒有引擎執行環境的情況下，幾秒內模擬幾千條路徑。邏輯綁在 `Node` 上就辦不到。D11 封閉經濟下驗證器是生命線，這條理由的權重是三條裡最高的。
+2. 規則能用一般的 dotnet 測試工具驗，不必開編輯器。
+3. 引擎會換，規則不會。
 
-具體做法：把邏輯放進一個獨立的 asmdef，**不引用 UnityEngine**。編譯器會幫你守住這條線。
+第 3 點在 2026-08-09 兌現了：專案由 Unity 換到 Godot，`Tower.Core` 的 **32 個檔一行未改**直接搬過來，45 條驗收全綠。當初這條規則靠 Unity asmdef 的 `noEngineReferences` 強制，現在由「`Tower.Core.csproj` 不引用 `GodotSharp`」繼續強制——編譯器仍然幫你守著這條線。
 
-**這條線的必然推論：Core 看不見 ScriptableObject**（SO 就是 UnityEngine）。所以邊界上需要一層轉換——每個 SO 定義配一個純 C# 的資料型別，SO 只負責在 Editor 裡被編輯，進入遊戲時由 Bootstrap 轉成 POCO 餵給 Core：
-
-```
-MonsterDefinitionSO (UnityEngine, Data/)          // 設計師編輯的資產
-    └─ .ToDefinition() → MonsterDefinition (純 C#, Core/)   // Core 唯一認得的形式
-```
-
-轉換方向永遠是 SO → POCO、發生在載入時、一次做完。Core 的任何型別出現 `using UnityEngine` 就是走錯了。這層看起來是重複程式碼，實際上是整個架構成立的前提——**可達性驗證器**跑在 Unity 之外，它只吃得下 POCO。
+**這條線的必然推論**：Core 看不見任何 Godot 型別，包括 `Resource`。所以資料一律走 CSV → POCO，由表現層在載入時讀進來餵給 Core（見「資料管線」）。Core 的任何型別出現 `using Godot` 就是走錯了。
 
 ---
 
 ## 專案結構
 
-功能導向（feature-based），不是類型導向。不要出現 `Scripts/Managers/`、`Scripts/Utils/` 這種按「它是什麼」分的資料夾——要按「它屬於哪個功能」分。
-
 ```
-Assets/
-  _Project/
-    Core/                       # 純 C#，asmdef 不引用 UnityEngine
-      Grid/                     # 格子、樓層網格、路徑
-      Combat/                   # CombatResolver、DamageFormula、怪物特性結算
-      Progression/              # 屬性、成長計算（寶石 + 祭壇；D8：不做裝備）
-      Save/                     # 存檔資料模型與序列化（POCO）
-      Simulation/               # 可達性驗證器的無畫面模擬（含守關怪合約檢查）
-    Features/                   # MonoBehaviour 層，一個功能一個資料夾
-      FloorExploration/         # 方向鍵輸入、樓層渲染、互動
-      CollisionBattle/          # 碰撞戰表現（數字跳動、震動回饋）
-      Bestiary/                 # 怪物手冊、傷害預覽
-      Shop/                     # 商店與祭壇（金幣買道具、經驗買屬性）
-      Dialogue/
-      FloorMap/                 # 樓層地圖、樓傳介面、安全區點擊傳送
-      SaveLoad/                 # 快照、自動存檔、雲端同步
-    Data/                       # ScriptableObject 資產與其定義
-      Monsters/                 # 數值 + 怪物特性組合
-      Items/                    # 含回溯道具
-      Floors/
-    UI/                         # 共用 UI 元件、字級與安全區處理
-    Bootstrap/                  # 組裝根：建立服務、注入相依
-  Editor/
-    LevelEditor/                # 樓層編輯器
-    DataPipeline/               # 試算表 → ScriptableObject 匯入
-    SolverRunner/               # 批次跑可達性驗證器
+project.godot                   # Godot 專案設定（橫向、Nearest filter）
+Tower.csproj                    # 表現層；只編 game/，引用 Tower.Core
+game/                           # Godot 端：只有表現與輸入
+  Main.tscn                     # 唯一的 gameplay 場景
+  GameRoot.cs                   # 協調者：載資料、組樓層、輸入、演出
+  HudView.cs                    # 三欄 HUD（CanvasLayer）
+  ViewFactory.cs                # 材質快取、Sprite2D/Label/底板
+  SpriteMap.cs                  # 概念 id → 檔名的唯一對照表
+  TextBank.cs                   # ui-strings / dialogues 的唯一來源
+src/Tower.Core/                 # 純 C#，不引用 GodotSharp
+  Grid/                         # 格子、樓層網格、路徑
+  Combat/                       # CombatResolver、DamageFormula、怪物特性結算
+  Commands/                     # IGameCommand、GameState
+  Data/                         # Catalog、Csv（POCO 與載入）
+  Floors/                       # 樓層定義（只認 id，不存數值）
+  Simulation/                   # 可達性驗證器（含守關怪合約檢查）
+data/                           # CSV：數值的唯一真相，res:// 直接讀
+assets/                         # sprites / audio / fonts（不進版控）
+tools/CoreVerify/               # 引擎外驗收（dotnet 幾秒跑完）
+tools/*.ps1                     # 素材切片、爆閃產生器
 ```
 
-`_Project` 前綴讓自家程式在 Project 視窗永遠排在第三方套件之上。
+**沒有 `StreamingAssets` 那層副本了。** Unity 時期 `data/` 必須複製一份給執行期讀，那份副本漂移過——序章對話加在 `data/` 卻沒同步，遊戲一句話都不顯示。Godot 的 `res://data/` 直接指向專案內的同一份，這個病從根上消失。
 
 ---
 
@@ -80,11 +65,11 @@ CombatResolver                                   // 碰撞戰：在公式上跑�
   └─ ResolveCollision(attacker, defender) → CollisionOutcome   // 一次算完
 ```
 
-**怪物特性**（先攻、連擊、魔攻、吸血…）是 `DamageFormula` 的輸入參數，不是散落在各處的 if——新增一個特性 = 擴充公式的一個結算規則 + 資料表一個欄位。特性一律確定性，禁止機率（D1 衍生規則，機率會毀掉傷害預覽）。
+**怪物特性**（先攻、連擊、魔攻、吸血…）是 `DamageFormula` 的輸入參數，不是散落在各處的 if——新增一個特性 = 擴充公式的一個結算規則 + 資料表一個欄位。特性一律確定性，禁止機率（D1 衍生規則）；迴避是唯一的例外形式，隨機性被限制在表現層（D15）。
 
 `ResolveCollision` 必須無副作用：吃狀態進去、吐結果出來、不改任何東西。因為**傷害預覽**就是直接呼叫它——預覽和實戰跑的是同一個函式，所以預覽永遠不會騙人。**守關怪**也走同一條路——只是數值大、特性組合兇的怪物，沒有專屬程式路徑。
 
-公式的紙上暫定版（含特性修正規則與完整算例）在 [`boss-test-8f.md`](boss-test-8f.md)——Core 動工時以它為起點鎖定公式，其精算表全部數字必須被 `DamageFormula` 的單元測試重現。
+公式的紙上暫定版在 [`boss-test-8f.md`](boss-test-8f.md)，其精算表全部數字由 `tools/CoreVerify` 重現。
 
 ### 2. 狀態變更走指令模式；存檔是快照 + 指令流
 
@@ -95,7 +80,7 @@ IGameCommand
   ├─ Apply(GameState)   // 就地變更；Apply 後 Undo 必須讓狀態與原先完全相等
   └─ Undo(GameState)
 
-GameState.Clone()       // 快照 = 深拷貝（樓層入口、指令戰前自動存檔都用它）
+GameState.Clone()       // 快照 = 深拷貝（樓層入口自動存檔用它）
 
 SaveFile
   ├─ snapshots      : Map<FloorId, GameState>   // 每層入口的快照（外層防軟鎖）
@@ -106,49 +91,57 @@ SaveFile
 這個結構讓三件事變成同一件事：
 
 - **回溯** = 從指令流尾端 pop command 執行 `Undo`——但入口在遊戲層：先檢查並消耗一顆**回溯道具**（D7），Core 只提供機制，不管收費
-- **當前狀態** = 入口快照 + 重放指令流（存檔裡甚至不用存 currentState）
+- **當前狀態** = 入口快照 + 重放指令流
 - **退回樓層入口** = 丟掉指令流（免費，D7 外層）
 
 **快照完整性規則**：退回 N 層入口時，**所有晚於該快照的快照一併作廢**（時間軸只有一條）。否則玩家可以退回 5F 重新配置資源，再「跳回」9F 的舊快照，兩個時間線的資源憑空疊加——這是套利漏洞，不是防軟鎖。實作上快照帶單調遞增的序號，回退即截斷。
 
-一場碰撞戰 = **一個** command（`ResolveCollision` 的結果打包進指令流），所以回溯一步就是回溯一整場戰鬥，語義乾淨。
+一場碰撞戰 = **一個** command，所以回溯一步就是回溯一整場戰鬥，語義乾淨。
 
-檔案大小可控：`GameState` 是純數值與 flag，一層幾 KB；指令流在寫入新樓層快照時清空，不會無限長。**不要**把樓層地圖本身存進去——那是靜態資料，從 ScriptableObject 讀。
+檔案大小可控：`GameState` 是純數值與 flag，一層幾 KB；指令流在寫入新樓層快照時清空。**不要**把樓層地圖本身存進去——那是靜態資料。
 
 ### 3. 戰鬥不載入場景
 
-**整個遊戲只有一個 gameplay 場景。** 碰撞戰直接在地圖上播表現（數字跳動 + 震動回饋），守關戰頂多加一段短演出（鏡頭推近、特性圖示展示），仍在同一場景。
+**整個遊戲只有一個 gameplay 場景（`Main.tscn`）。** 碰撞戰在 HUD 的 VS 面板上逐回合演出（爆閃、紅色傷害數字、體力逐格掉，照原版），守關戰頂多加一段短演出，仍在同一場景。
 
-理由：場景載入在中低階 Android 上是 0.5–2 秒。魔塔類型一場遊戲會發生數百次戰鬥，載入一次就毀掉節奏。D1 砍掉指令戰後，這條規則沒有任何例外了。
+理由：場景載入在中低階 Android 上是 0.5–2 秒。魔塔類型一場遊戲會發生數百次戰鬥，載入一次就毀掉節奏。
 
----
-
-## ScriptableObject 的使用界線
-
-**要用**：怪物、道具、樓層佈局——所有**設計師調整、執行期唯讀**的資料。
-
-**不要用**：執行期會變的狀態。SO 在 Editor 裡的修改會被持久化，用它存玩家 HP 會讓你在測試時莫名其妙地「繼承」上一輪的數值——這是 Unity 專案最常見的除錯地獄之一。執行期狀態一律放純 C# 物件。
-
-**匯入管線**：數值在試算表調，不在 Inspector。`Editor/DataPipeline/` 讀 CSV/TSV 產生 SO 資產。這在你有 200 隻怪之後會救你一命——沒有它，平衡調整就是 200 次手動點擊。
+**演出不改變規則**：`ResolveCollision` 一次算完，逐回合只是把算好的結果攤開來播。回合數壓在 12 次以內、超過就縮短間隔，否則數十回合的硬仗會拖垮節奏。
 
 ---
 
-## 相依注入
+## 資料管線
 
-**需要，但不需要框架。**
+**數值在 CSV 調，不在編輯器 Inspector。** `data/*.csv` 是唯一真相：
 
-Zenject / VContainer 對這個規模的專案是過度工程。你只需要一個 `Bootstrap` 場景，在裡面手動 new 出所有服務、串好、丟給需要的人：
-
-```csharp
-// SO → POCO 的轉換就發生在這裡，Core 從頭到尾看不見 UnityEngine
-var balance   = balanceConfigSO.ToConfig();          // POCO
-var monsters  = monsterDatabaseSO.ToDefinitions();   // POCO
-var resolver  = new CombatResolver(new DamageFormula(balance));
-var saveService = new SaveService(Application.persistentDataPath);
-var game = new GameSession(resolver, saveService, monsters);
+```
+data/monsters.csv ─┐
+data/items.csv   ─┴→ Core/Data/Catalog.Load(csvText) → POCO 字典 → CombatResolver
+data/ui-strings.csv ┐
+data/dialogues.csv ─┴→ game/TextBank → 所有玩家可見文字
 ```
 
-好處是相依關係**看得見**——你打開 Bootstrap 就知道整個系統長怎樣。框架會把這件事藏進 attribute 裡。等專案真的複雜到手動組裝很痛的時候再換，那時候你也才知道自己需要什麼。
+`Catalog.Load` 吃的是 **CSV 文字**而不是路徑——這樣 Core 不需要知道 `res://` 或檔案系統，驗證器與遊戲可以用同一個函式從不同來源餵資料。未知的特性名或分類在載入期就擲例外，錯字不會流到玩家手機。
+
+**樓層只認 id，不存數值**（`F01.MonsterRefs = { "slime_green", ... }`）。這條規則是被實際的 bug 逼出來的：曾經樓層、CSV、展示層各存一份數值，三份漂移到互相矛盾。
+
+**鐵則**：任何玩家可見字串都不得出現在程式碼，一律走 `ui-strings.csv` / `dialogues.csv`。
+
+---
+
+## 相依組裝
+
+**需要，但不需要框架。** `GameRoot._Ready()` 就是組裝根：手動 new 出所有服務、串好。
+
+```csharp
+_text = TextBank.Load();                                   // res://data/*.csv
+_catalog = Catalog.Load(TextBank.ReadCsv("monsters.csv"),
+                        TextBank.ReadCsv("items.csv"));    // CSV → POCO
+_view = new ViewFactory();
+_hud  = new HudView(_view, _text, this);
+```
+
+相依關係**看得見**——打開 `GameRoot` 就知道整個系統長怎樣。
 
 **絕對不要用 singleton / static manager。** 它會讓**可達性驗證器**沒辦法平行跑多個模擬。
 
@@ -156,26 +149,25 @@ var game = new GameSession(resolver, saveService, monsters);
 
 ## 效能
 
-這類型的效能問題跟一般手遊不同——你的瓶頸**不在 500 隻怪同時動**（它們是回合制的，不會同時動）。真正的風險：
+這類型的瓶頸**不在 500 隻怪同時動**（回合制，不會同時動）。真正的風險：
 
-1. **每格一個 GameObject** — 一層 20×20 = 400 個 GameObject，切樓層時全部銷毀重建。用 Tilemap 或物件池，不要每次 Instantiate。
-2. **UI 重建** — 怪物手冊、背包這類長列表要用虛擬化列表，不要一次生成 200 個 item。
-3. **存檔序列化** — 每次進樓層都寫快照。用 JSON 就好，但**寫在背景執行緒**，不要卡住樓層轉場。
-4. **Addressables** — MVP 階段不需要。10–15 層的資產全部打進 build 就好。等內容量真的撐不下再導入，過早導入只會讓你在除錯載入問題上浪費時間。
+1. **每格一個節點** — 一層 13×13 = 169 個 `Sprite2D`，切樓層時全部銷毀重建。目前規模無虞；擴到更大樓層時改用 `TileMapLayer`。
+2. **UI 重建** — 怪物手冊這類長列表要虛擬化，不要一次生成 200 個 item。
+3. **存檔序列化** — 每次進樓層都寫快照。JSON 即可，但**寫在背景執行緒**。
+4. **匯出設定** — 行動端要確認材質壓縮與圖集打包；像素風必須維持 Nearest filter 與整數縮放，否則整套糊掉。
 
 ---
 
 ## 先做什麼
 
-順序不是隨便排的——每一步都是為了讓下一步能被驗證：
-
-1. **`Core/Grid` + `Core/Combat`（含 DamageFormula、怪物特性）+ `IGameCommand`（純 C#，含測試）** — 沒有畫面，但規則對了。指令模式必須在這一步就進來（D7），不能事後補
-2. **`Simulation` + 可達性驗證器** — 現在你能自動驗證樓層可不可解。D1 純碰撞戰 + D11 封閉經濟下，驗證器覆蓋全塔含 Boss。先做**每層獨立驗證**（入口預算 → 出口預算），全塔只做資源總量守恆檢查——不要一開始就挑戰全塔搜索，那是狀態空間爆炸的地方
-3. **`FloorExploration` 最小可玩版** — 一層地圖、方向鍵移動、碰撞戰、鑰匙門
-4. **`Bestiary` + 傷害預覽 + 回溯道具** — 到這裡遊戲才真的「可玩」。回溯的 UI 很小，但它背後的指令流在第 1 步已經就緒
+1. ~~**Core：Grid + Combat + IGameCommand**~~ ✅ 完成（跨引擎搬遷後仍全綠）
+2. ~~**Simulation + 可達性驗證器**~~ ✅ 完成（含守關怪合約檢查、守衛有效性檢查）
+3. ~~**最小可玩版**~~ ✅ 完成（F00–F02、方向鍵、碰撞戰演出、三欄 HUD）
+4. **怪物手冊 + 回溯道具** — 回溯的 UI 很小，但背後的指令流在第 1 步已就緒
 5. **存檔：樓層快照 + 指令流序列化 + 祭壇**
-6. **關卡編輯器** — 在手工做超過 5 層之前一定要有。一人開發（D12）下，它的產能直接決定 D6 的 25–30 層是否成立
-7. **10–15 層內容 + 難度弧線**（MVP＝D3；出貨版 25–30 層＝D6，在編輯器成熟後才擴產）
+6. **關卡編輯器** — 在手工做超過 5 層之前一定要有。一人開發（D12）下，它的產能直接決定 D6 的 25–30 層是否成立。**Godot 的編輯器外掛（`EditorPlugin`）是這一步的載體**，Unity 時期寫的六功能規格（`floor-authoring.md`）仍然適用
+7. **10–15 層內容 + 難度弧線**（MVP＝D3；出貨版 25–30 層＝D6）
 
-第 7 步完成後有一個**複審點**：碰撞戰魔塔本身夠不夠好玩、編輯器產能撐不撐得起 25–30 層。D6 的規模與美術方案（CONTEXT.md 待決）都在這裡拍板。
+第 7 步完成後有一個**複審點**：碰撞戰魔塔本身夠不夠好玩、編輯器產能撐不撐得起 25–30 層。D6 的規模與美術方案都在這裡拍板。
 
+**新增於 D16 的驗證項**：Android / iOS / Steam 三個匯出目標各自跑通一次（尤其 iOS，Godot 的流程與 Unity 差異最大），不要等到內容做完才發現匯出有坑。

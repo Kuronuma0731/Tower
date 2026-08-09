@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    遊戲規則的唯一實作，且**完全不依賴遊戲引擎**。
+
+    這條規則從 Unity 時期就是架構的地基（原本靠 asmdef 的 noEngineReferences 強制），
+    換到 Godot 之後由「這個 csproj 不引用 GodotSharp」繼續強制。好處在這次換引擎時
+    兌現了：32 個檔、46 條驗收全部原封不動搬過來，一行都沒改。
+
+    net8.0：Godot 4.7 的 .NET 版就是這個目標框架；驗證器（net9.0）也吃得下。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Tower.Core</RootNamespace>
+    <AssemblyName>Tower.Core</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Tests/ 是 Unity 時期的 NUnit 測試，改由 tools/CoreVerify 承擔，故不編入 -->
+    <Compile Include="Combat/*.cs" />
+    <Compile Include="Commands/*.cs" />
+    <Compile Include="Data/*.cs" />
+    <Compile Include="Floors/*.cs" />
+    <Compile Include="Grid/*.cs" />
+    <Compile Include="Simulation/*.cs" />
+  </ItemGroup>
+</Project>

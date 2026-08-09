@@ -3,7 +3,7 @@
 數值管線的形狀：**試算表（CSV）→ DataPipeline 匯入 → ScriptableObject → Bootstrap 轉 POCO → Core**。
 設計師（你）只碰 CSV 和關卡編輯器，不碰 Inspector。
 
-**CSV 實體檔已存在於 repo 根層 `data/`**（文本骨架先於 Core，2026-08-08 決策）。Unity 專案建立後由 DataPipeline 從此處讀取；`data/` 是唯一的編輯位置。
+**CSV 實體檔已存在於 repo 根層 `data/`**（文本骨架先於 Core，2026-08-08 決策）。Godot 專案建立後由 DataPipeline 從此處讀取；`data/` 是唯一的編輯位置。
 
 **鐵則：程式碼禁止出現玩家可見字串。** 所有玩家看得到的文字——按鈕、訊息、對話、描述——一律走 `ui-strings.csv` / `dialogues.csv` / 各表的 `*_zh` 欄，程式只認 id。日後本地化 = 換表，不是掃程式碼。
 

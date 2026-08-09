@@ -1,27 +1,19 @@
-# OS
-Thumbs.db
-Desktop.ini
+# Godot
+.godot/
+.import/
+export_presets.cfg
+*.translation
 
-# Unity
-# 注意：*.meta 必須進版控——資源引用全靠它，絕對不要加進這份清單
-Library/
-Temp/
-Obj/
-Build/
-Builds/
-Logs/
-UserSettings/
-*.csproj
-*.sln
+# .NET
+bin/
+obj/
+*.user
 
 # 遊戲素材一律不進版控（含第三方授權素材）。
 # 本機來源：G:\圖片放置\魔塔
 # 重建方式：powershell -File tools/slice-sheets.ps1 -SourceDir "G:\圖片放置\魔塔" -OutputDir art\pixel\raw
-# 再依 docs/art-assets.md 的對應表複製到 art/pixel/sprites 與 Assets/StreamingAssets/sprites
+# 再依 docs/art-assets.md 的對應表複製到 assets/sprites；爆閃由 tools/make-fx.ps1 產生
 art/
-Assets/StreamingAssets/sprites/
-Assets/StreamingAssets/audio/
-
-# dotnet 驗證器的建置產物
-tools/CoreVerify/bin/
-tools/CoreVerify/obj/
+assets/sprites/
+assets/audio/
+assets/fonts/

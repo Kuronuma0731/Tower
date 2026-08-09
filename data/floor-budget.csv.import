@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://fhkug4uc21y1"
+
+[deps]
+
+files=["res://data/floor-budget.keys.translation", "res://data/floor-budget.keys.translation", "res://data/floor-budget.keys.translation", "res://data/floor-budget.doors.translation", "res://data/floor-budget.doors.translation", "res://data/floor-budget.doors.translation", "res://data/floor-budget.gold.translation", "res://data/floor-budget.exp.translation", "res://data/floor-budget.potion.translation", "res://data/floor-budget.gem.translation", "res://data/floor-budget.gem.translation", "res://data/floor-budget.hourglass.translation", "res://data/floor-budget.mandatory.translation", "res://data/floor-budget.notes.translation"]
+
+source_file="res://data/floor-budget.csv"
+dest_files=["res://data/floor-budget.keys.translation", "res://data/floor-budget.keys.translation", "res://data/floor-budget.keys.translation", "res://data/floor-budget.doors.translation", "res://data/floor-budget.doors.translation", "res://data/floor-budget.doors.translation", "res://data/floor-budget.gold.translation", "res://data/floor-budget.exp.translation", "res://data/floor-budget.potion.translation", "res://data/floor-budget.gem.translation", "res://data/floor-budget.gem.translation", "res://data/floor-budget.hourglass.translation", "res://data/floor-budget.mandatory.translation", "res://data/floor-budget.notes.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

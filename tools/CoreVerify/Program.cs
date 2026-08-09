@@ -75,32 +75,8 @@ namespace Tower.Verify
             try { Catalog.ParseTraits("first_stirke"); } catch (ArgumentException) { threw = true; }
             Check("未知特性名在載入期擲例外（錯字不會流到玩家手機）", threw);
 
-            StreamingAssetsInSync();
-        }
-
-        /// <summary>
-        /// data/ 是唯一真相，但 Unity 執行期讀的是 Assets/StreamingAssets/data/ 的副本。
-        /// 這兩份會漂移——序章對話加在 data/ 卻沒同步，遊戲就一句話都不顯示，查了半天。
-        /// 用 tools/sync-data.ps1 同步。
-        /// </summary>
-        private static void StreamingAssetsInSync()
-        {
-            string repo = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
-            string src = Path.Combine(repo, "data");
-            string dst = Path.Combine(repo, "Assets", "StreamingAssets", "data");
-            if (!Directory.Exists(dst)) { Check("StreamingAssets/data 存在", false); return; }
-
-            var stale = new List<string>();
-            foreach (var f in Directory.GetFiles(src, "*.csv"))
-            {
-                string mirror = Path.Combine(dst, Path.GetFileName(f));
-                if (!File.Exists(mirror) || File.ReadAllText(mirror) != File.ReadAllText(f))
-                    stale.Add(Path.GetFileName(f));
-            }
-            Check(stale.Count == 0
-                    ? "StreamingAssets/data 與 data/ 一致"
-                    : $"StreamingAssets/data 落後：{string.Join(",", stale)}（跑 tools/sync-data.ps1）",
-                stale.Count == 0);
+            // 舊的 StreamingAssets 同步檢查已隨 Unity 一起移除：Godot 用 res:// 直接讀
+            // 專案內的 data/，沒有第二份副本，也就沒有漂移的餘地。
         }
 
         // boss-test-8f.md 的驗收向量

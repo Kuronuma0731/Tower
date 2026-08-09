@@ -1,0 +1,56 @@
+; Tower — Godot 4.7 (.NET) 專案設定
+;
+; D9：橫向固定（經典魔塔三欄版面）。D14：像素風，一格 32px。
+; 目標平台：Android / iOS（買斷制 App）＋ Steam 桌面版。**不做網頁版。**
+
+config_version=5
+
+[application]
+
+config/name="Tower"
+config/description="Tower Strategy RPG — 魔塔系列的資源解謎"
+run/main_scene="res://game/Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+
+[display]
+
+; 橫向 1280x720：13 格 x 32px 的棋盤放中間，兩側留給三欄 HUD
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[dotnet]
+
+project/assembly_name="Tower"
+
+[rendering]
+
+; 像素風：關掉所有平滑，否則 32px 素材整套糊掉
+textures/canvas_textures/default_texture_filter=0
+anti_aliasing/quality/msaa_2d=0
+
+[input]
+
+move_up={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"keycode":4194320,"physical_keycode":0,"unicode":0,"pressed":true), Object(InputEventKey,"keycode":87,"physical_keycode":0,"unicode":0,"pressed":true)]
+}
+move_down={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"keycode":4194322,"physical_keycode":0,"unicode":0,"pressed":true), Object(InputEventKey,"keycode":83,"physical_keycode":0,"unicode":0,"pressed":true)]
+}
+move_left={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"keycode":4194319,"physical_keycode":0,"unicode":0,"pressed":true), Object(InputEventKey,"keycode":65,"physical_keycode":0,"unicode":0,"pressed":true)]
+}
+move_right={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"keycode":4194321,"physical_keycode":0,"unicode":0,"pressed":true), Object(InputEventKey,"keycode":68,"physical_keycode":0,"unicode":0,"pressed":true)]
+}
+confirm={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"keycode":4194309,"physical_keycode":0,"unicode":0,"pressed":true), Object(InputEventKey,"keycode":32,"physical_keycode":0,"unicode":0,"pressed":true)]
+}

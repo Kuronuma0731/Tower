@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    引擎外驗證器：Core 不依賴任何遊戲引擎，所以整套規則可以用一般 dotnet 跑，
+    幾秒內完成，不必開 Godot。CI 與日常開發都用這個把關。
+    執行方式見 CLAUDE.md（XML 註解不能含連續兩個減號，故不在此寫指令）。
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>CoreVerify</AssemblyName>
+    <RootNamespace>Tower.Verify</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Tower.Core/Tower.Core.csproj" />
+  </ItemGroup>
+</Project>

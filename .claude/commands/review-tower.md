@@ -48,3 +48,108 @@ description: 稽核 Tower 設計文件的一致性——找矛盾、缺口、過
 - **「需要決策」的發現必須逐條詢問，一次一題。** 報告輸出後，凡標了「需要決策」的發現，用 AskUserQuestion 逐條向使用者提問——每題附選項、各選項的代價、與你的推薦；**一題答完才問下一題**，讓使用者有空間思考。決策定案後：更新 `CONTEXT.md`（新決策或待決事項），該條發現隨其他「修」項一併執行。
 - **純文件修補項也用 AskUserQuestion 收尾**：報告完畢後問一次「要不要現在執行修理」（全部修／只修紅橙／先不修），不要讓報告懸在半空等使用者自己想起來。
 - 空手而歸是可接受的結論——沒有漏洞就說沒有，不要為了交差硬擠。
+
+
+## Purpose
+
+`/review` performs a focused engineering review of the current change.
+
+It is different from `/grill`:
+
+-   `/grill` challenges architecture, scope and game design.
+-   `/review` checks the actual implementation and regression risk.
+
+## Procedure
+
+### 1. Inspect the Change
+
+Review: - changed files; - related scenes; - related scripts; -
+resources; - project settings when relevant; - tests; - dependencies; -
+recent surrounding code.
+
+Never review only the diff if surrounding context is required to
+understand behavior.
+
+### 2. Check Correctness
+
+Look for: - logic bugs; - null/invalid node references; - invalid scene
+ownership assumptions; - signal connection mistakes; -
+lifecycle/order-of-execution bugs; - collision/input issues; - save/load
+corruption; - state synchronization bugs; - incorrect resource
+loading; - unintended persistence; - edge cases at floor transitions.
+
+### 3. Check Godot Architecture
+
+Verify: - correct node type; - appropriate scene boundaries; - sensible
+use of signals; - no unnecessary autoload; - reusable data belongs in
+Resources where appropriate; - gameplay state is not owned by UI; - no
+Unity-style architecture has leaked into the project.
+
+### 4. Check Maintainability
+
+Look for: - duplicated code; - hard-coded values; - giant functions; -
+giant manager scripts; - unclear ownership; - fragile `$Node/Path`
+dependencies; - unexplained magic numbers; - unnecessary abstractions; -
+naming inconsistency.
+
+### 5. Check Regression Risk
+
+Ask: - Could this break existing floors? - Could this break enemy
+behavior? - Could this break NPC interactions? - Could this break
+save/load? - Could this break UI? - Could this break future B1--B10
+expansion? - Could an existing scene behave differently because of this
+change?
+
+## Severity
+
+Use:
+
+-   **P0:** definite blocker / data loss / major broken gameplay.
+-   **P1:** significant bug or architectural regression.
+-   **P2:** maintainability or correctness concern.
+-   **P3:** minor polish.
+
+Only report actionable findings.
+
+## Output Format
+
+### Verdict
+
+-   APPROVE
+-   APPROVE WITH CHANGES
+-   REQUEST CHANGES
+
+### Findings
+
+For each finding:
+
+**\[P0/P1/P2/P3\] Title** - Location: - Problem: - Why it matters: -
+Recommended fix:
+
+### What Looks Good
+
+Only mention concrete strengths in the implementation.
+
+### Regression Checklist
+
+-   [ ] Player movement
+-   [ ] Collision
+-   [ ] Enemy interaction
+-   [ ] NPC interaction
+-   [ ] Items / keys / doors
+-   [ ] Battle
+-   [ ] Floor transition
+-   [ ] Save / load
+-   [ ] UI
+-   [ ] Existing scenes
+
+Only mark an item complete when evidence supports it.
+
+## Rules
+
+-   Do not rewrite code unless explicitly asked.
+-   Do not turn minor style preferences into blockers.
+-   Do not invent test results.
+-   If something cannot be verified, say `Not verified`.
+-   Prefer the smallest safe fix.
+-   Keep the review focused on the current change.

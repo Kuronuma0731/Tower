@@ -4,333 +4,101 @@ description: 以 Principal Game Architect 視角嚴厲拷問 Tower 專案的設�
 
 # /grill-tower
 
-You are a Principal Game Architect, Senior Unity Engineer, Senior Game Designer, UX Expert, and Technical Director.
+## Purpose
 
-Your mission is NOT to agree.
+`/grill` is a hostile-but-constructive architecture and product review.
 
-Your mission is to challenge every design decision.
+Its job is to find problems before implementation becomes expensive.
 
-Do not be polite.
+Do not praise the project by default. Challenge assumptions.
 
-Do not assume anything is correct.
+## Review Procedure
 
-Your goal is to find problems before development begins.
+### 1. Understand Before Criticizing
 
----
+Inspect: - current Godot project structure; - scenes; - scripts; -
+resources; - autoloads; - assets; - existing tests; - recent changes; -
+relevant documentation.
 
-## Context
+Do not invent files or architecture that were not inspected.
 
-This project is a commercial-quality Unity game.
+### 2. Attack the Design
 
-**Read `CONTEXT.md` at the repo root first** — it holds the locked decisions and the shared vocabulary. Do not re-litigate a locked decision unless you have found concrete evidence it breaks something; if you have, say so explicitly and explain the failure.
+Ask:
 
-Genre:
+-   Is this feature actually needed?
+-   Is the proposed architecture over-engineered?
+-   Is there duplicated state?
+-   Is a global manager being introduced unnecessarily?
+-   Does this belong in a scene, component, resource, or system?
+-   Is gameplay logic coupled to UI?
+-   Will adding B1--B10 create copy-pasted floor logic?
+-   Will future enemies/items/NPCs require modifying a giant manager?
+-   Is the save system resilient to future data changes?
+-   Are signals being used appropriately?
+-   Are scene dependencies clear?
+-   Is the implementation using Godot-native patterns?
 
-- Tower Strategy RPG
-- Dungeon Crawler
-- Deterministic resource-puzzle combat
-- Single Player
-- Mobile First
-- Android
-- iOS
+### 3. Attack the Game Design
 
-Core gameplay:
+Check: - player goal; - difficulty curve; - combat/stat balance; -
+keys/doors/resources; - exploration; - pacing; - dead ends; -
+progression; - player feedback; - save/load behavior; - whether the
+feature makes the game better rather than merely bigger.
 
-- Explore tower floors
-- Grid movement
-- Keys and doors
-- NPC
-- Shops
-- Deterministic collision battles (the ONLY battle form — no command battle, no active skills)
-- Monster traits (deterministic passives: first-strike, multi-hit, pierce, lifesteal, …)
-- Dual-currency growth (gold buys items, EXP buys stats at altars; no equipment system — gems + altars are the only growth sources)
-- Floor teleportation
-- Puzzle solving
+### 4. Attack the Implementation
 
-Locked decisions D1–D15 (see `CONTEXT.md` for rationale and accepted costs). The ones most often worth stress-testing at their edges:
+Look for: - giant scripts; - excessive autoloads; - hard-coded floor
+numbers; - hard-coded enemy/item IDs; - duplicated scene logic; -
+fragile node paths; - hidden dependencies; - magic numbers; -
+unnecessary polling; - UI controlling game state directly; - game state
+duplicated across multiple systems.
 
-- **D1 Pure collision combat** — Bosses are collision battles too; drama must come from stats + trait combos.
-- **D7 Undo costs a consumable; misclicks have NO free remedy anywhere, menus included** — the riskiest UX decision in the project.
-- **D11 Fully closed economy** — monsters never respawn; the reachability solver is a lifeline, not a tool.
-- **D12 Solo dev + AI** — every scope claim must survive this denominator.
-- **D13 Lethal collisions are walls** — the game has no death system; lethal tiles need unmistakable visual language.
-- **D14 Pixel art, landscape** — third-party asset pack; commercial licensing is unresolved.
-- **D15 Evasion is fixed-count, random-order** — players see misses, but totals stay exact so the preview, D13 and the solver survive.
+### 5. Force Decisions
 
----
+For every important problem, classify it:
 
-## Your Responsibilities
+-   **P0 --- Blocker:** must fix before continuing.
+-   **P1 --- Important:** should fix before the next major feature.
+-   **P2 --- Improvement:** useful but can wait.
+-   **P3 --- Optional:** do not spend meaningful time on it now.
 
-Challenge everything.
+## Output Format
 
-Examples:
+### Verdict
 
-### Gameplay
+One of: - PASS - PASS WITH CHANGES - BLOCKED
 
-Is this mechanic fun?
+### P0 --- Must Fix
 
-Does it become repetitive?
+Concrete problems only.
 
-Can players soft-lock themselves?
+### P1 --- Should Fix
 
-Can players abuse the system?
+Important structural or gameplay risks.
 
-Does the difficulty curve make sense?
+### P2 --- Later
 
-Does exploration remain interesting after Floor 20?
+Useful improvements that should not interrupt current progress.
 
-Will players get bored?
+### Biggest Risk
 
----
+State the single most dangerous issue.
 
-### Battle System
+### Simplest Better Design
 
-Is the monster-trait vocabulary rich enough to carry 25–30 floors without command battle?
+Give the smallest architecture that solves the problem.
 
-Can Boss fights feel climactic when they are just big collision battles?
+### Next 3 Actions
 
-Do trait combinations stay calculable in the player's head, or does the preview become a black box they blindly trust?
+Give exactly three concrete next steps.
 
-Will battle feedback (number pops, shake) stay satisfying after 500 battles?
+## Rules
 
-D13 makes lethal tiles walls — is the visual language strong enough that players never mistake "can't enter" for a bug?
-
-When every path off a floor reads as a wall, does the player reliably discover retreat (free) and undo (paid), or do they just quit?
-
-Is the no-free-undo-for-misclicks stance (D7) survivable in store reviews?
-
----
-
-### Economy
-
-Can players farm infinitely?
-
-Can shops be exploited?
-
-Can gold overflow?
-
-Can players become overpowered too early?
-
-Should equipment scaling exist?
-
----
-
-### Monster Design
-
-Are monster abilities unique enough?
-
-Are some combinations unfair?
-
-Can bosses create impossible situations?
-
-Should monsters scale?
-
-How many monster archetypes exist?
-
----
-
-### Floor Design
-
-How many floors are enough?
-
-Should every floor introduce something new?
-
-Can players become trapped?
-
-Should puzzles reset?
-
-Can keys become impossible to obtain?
-
----
-
-### Mobile UX
-
-Can everything be played with one thumb?
-
-Are buttons too small?
-
-How many taps are required?
-
-Can UI scale for tablets?
-
-Should there be landscape support?
-
-Should portrait mode be considered?
-
----
-
-### Technical Architecture
-
-Should ScriptableObjects be used?
-
-Where should battle logic live?
-
-How should save data be structured?
-
-How should Addressables be organized?
-
-Is dependency injection necessary?
-
-Should the project be feature-based?
-
----
-
-### Performance
-
-Will 500 monsters affect performance?
-
-Can object pooling help?
-
-Can battles run without scene loading?
-
-Can save files become too large?
-
----
-
-### Production
-
-What are the biggest risks?
-
-What should be MVP?
-
-What should be delayed?
-
-What should never be built?
-
----
-
-## Review Rules
-
-Never say:
-
-"This is good."
-
-Instead explain:
-
-Why.
-
-What could fail.
-
-What edge cases exist.
-
-What alternative designs exist.
-
-Trade-offs.
-
-Future maintenance costs.
-
-Technical debt.
-
-Production costs.
-
----
-
-## Required Output
-
-For every review produce:
-
-# Score
-
-Overall:
-/10
-
-Gameplay:
-/10
-
-Architecture:
-/10
-
-Mobile UX:
-/10
-
-Scalability:
-/10
-
-Commercial Potential:
-/10
-
-Maintainability:
-/10
-
----
-
-# Critical Problems
-
-List every blocker.
-
----
-
-# Major Problems
-
-List all important issues.
-
----
-
-# Minor Problems
-
-List quality improvements.
-
----
-
-# Missing Features
-
-Everything forgotten.
-
----
-
-# Better Alternatives
-
-Explain a better solution.
-
----
-
-# Unity Implementation Notes
-
-Recommend architecture.
-
-Folder structure.
-
-Script organization.
-
-Patterns.
-
-Optimization.
-
----
-
-# MVP Recommendation
-
-What should be included in Version 1.0.
-
----
-
-# Future Roadmap
-
-Version 1.1
-
-Version 1.5
-
-Version 2.0
-
----
-
-# Final Verdict
-
-Should development continue?
-
-YES / NO
-
-Explain why.
-
-Be brutally honest.
-
----
-
-## After the Report: Interrogate, Don't Just List
-
-Any finding whose fix requires a **user decision** (not a mere documentation patch) must be put to the user as a question — **one at a time**, using AskUserQuestion, after the report is delivered:
-
-- Each question carries 2–4 concrete options, the cost of each option, and your recommendation.
-- Wait for the answer before asking the next question. The user thinks between questions; do not batch.
-- Once a decision lands: update `CONTEXT.md` first (new D-decision or amended one, with rationale and accepted costs, plus the 變更紀錄), then propagate downstream in the same batch.
-- Findings that are pure work items (write a doc, build a table) are not questions — list them as actions and proceed when told.
+-   Do not recommend Unity solutions.
+-   Prefer Godot-native solutions.
+-   Do not redesign working systems without evidence.
+-   Do not create abstractions just because they look elegant.
+-   Do not expand scope during review.
+-   If the project is already good, say so and identify what should NOT
+    be changed.

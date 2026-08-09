@@ -26,6 +26,18 @@ namespace Tower.EditorDev
             EditorApplication.EnterPlaymode();
         }
 
+        /// <summary>
+        /// 命令列編譯把關。**不要用 `-batchmode -quit` 驗編譯**——它會在編譯完成前就退出，
+        /// log 看起來乾乾淨淨卻其實沒編（本專案已被這個假陰性騙過兩次）。
+        /// 改用：`-batchmode -executeMethod Tower.EditorDev.DevAutomation.CompileOnly`，
+        /// Unity 會先完成編譯才執行本方法，之後檢查 log 有無 `error CS` 即可。
+        /// </summary>
+        public static void CompileOnly()
+        {
+            Debug.Log("[TowerDev] CompileOnly: 編譯已完成，組件可用。");
+            EditorApplication.Exit(0);
+        }
+
         private static int _attempts;
 
         private static void ResetZoomSoon()

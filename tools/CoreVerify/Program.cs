@@ -46,6 +46,8 @@ namespace Tower.Verify
             GridChecks();
             SolverChecks(catalog);
             F01Checks(catalog);
+            F02Checks(catalog);
+            FloorPairingChecks();
 
             Console.WriteLine($"\n{_passed} passed, {_failed} failed");
             return _failed == 0 ? 0 : 1;
@@ -237,6 +239,43 @@ namespace Tower.Verify
             var bt = CombatResolver.ResolveCollision(new PlayerStats(10, 10), catalog.Monsters["bat_cave"]);
             Check($"預覽數字 史萊姆 -{sl.ExpectedLoss} / 蝙蝠 -{bt.ExpectedLoss}（期望 32 / 132）",
                 sl.ExpectedLoss == 32 && bt.ExpectedLoss == 132);
+        }
+
+        private static void F02Checks(Catalog catalog)
+        {
+            Console.WriteLine("== F02 ==");
+            Check("引用的怪與道具都在表內",
+                F02.MonsterRefs.All(catalog.Monsters.ContainsKey) && F02.ItemRefs.All(catalog.Items.ContainsKey));
+
+            // 進入 F02 的狀態＝走完 F01 的最佳線（含那顆攻擊寶石）
+            var arrival = new GameState { Atk = 12, Def = 10, Hp = 1290 };
+            var result = new FloorSolver(F02.Build(), catalog.Monsters, catalog.Items)
+                .Solve(arrival, F02.StairsDownPos, F02.StairsUpPos);
+            Check($"可解 {result.Status} exitHp={result.BestExitHp} nodes={result.NodesExplored}",
+                result.Status == SolverStatus.Solvable);
+
+            // 本層的教學：先拿攻擊寶石，右翼的蝙蝠就變便宜
+            var bat = catalog.Monsters["bat_cave"];
+            var before = CombatResolver.ResolveCollision(new PlayerStats(12, 10), bat);
+            var after = CombatResolver.ResolveCollision(new PlayerStats(14, 10), bat); // +2 攻
+            Check($"順序有意義：先拿攻擊寶石讓蝙蝠從 {before.ExpectedLoss} 降到 {after.ExpectedLoss}",
+                after.ExpectedLoss < before.ExpectedLoss);
+        }
+
+        private static void FloorPairingChecks()
+        {
+            Console.WriteLine("== 跨層規約 ==");
+            // floor-authoring.md：F(n) 的上樓梯與 F(n+1) 的下樓梯同座標
+            Check($"F01 上樓梯 {F01.StairsUpPos} == F02 下樓梯 {F02.StairsDownPos}",
+                F01.StairsUpPos == F02.StairsDownPos);
+
+            var f01 = F01.Build();
+            var f02 = F02.Build();
+            Check("F01 的上樓梯實體確實在宣告座標上",
+                f01.FindStairs(StairsDirection.Up)?.Pos == F01.StairsUpPos);
+            Check("F02 的下／上樓梯實體都在宣告座標上",
+                f02.FindStairs(StairsDirection.Down)?.Pos == F02.StairsDownPos &&
+                f02.FindStairs(StairsDirection.Up)?.Pos == F02.StairsUpPos);
         }
     }
 }

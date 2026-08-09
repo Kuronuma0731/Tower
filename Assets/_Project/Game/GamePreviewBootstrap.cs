@@ -104,8 +104,12 @@ namespace Tower.Game
             camGo.tag = "MainCamera";
         }
 
-        /// <summary>載入/切換樓層（F01 工程測試層；F00 展示層，G 鍵切換）。</summary>
-        private void LoadFloor(string id)
+        /// <summary>
+        /// 載入/切換樓層（F01、F02；F00 展示層由 G 鍵切換）。
+        /// <paramref name="entryPos"/> 指定落點——座標對齊規約下，上樓落在該層的下樓梯、
+        /// 下樓落在該層的上樓梯，不給則用該層預設起點。
+        /// </summary>
+        private void LoadFloor(string id, GridPos? entryPos = null)
         {
             if (_boardRoot != null) Destroy(_boardRoot);
             _entityViews.Clear();
@@ -118,11 +122,25 @@ namespace Tower.Game
             _hud.HideReceipt();
 
             bool gallery = id == "F00";
-            _floor = gallery ? GalleryFloor.Build() : F01.Build();
+            var carried = _state; // 換樓層時屬性與道具要帶著走
 
-            _state = new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv 鏡像
+            _floor = id switch
+            {
+                "F00" => GalleryFloor.Build(),
+                "F02" => F02.Build(),
+                _ => F01.Build(),
+            };
+
+            _state = carried != null && !gallery && carried.CurrentFloor != "F00"
+                ? carried
+                : new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv 鏡像
             _state.CurrentFloor = id;
-            _state.Position = gallery ? GalleryFloor.SpawnPos : F01.SpawnPos;
+            _state.Position = entryPos ?? id switch
+            {
+                "F00" => GalleryFloor.SpawnPos,
+                "F02" => F02.StairsDownPos,
+                _ => F01.SpawnPos,
+            };
             if (gallery) { _state.KeysYellow = 1; _state.KeysBlue = 1; _state.KeysRed = 1; }
 
             _boardRoot = new GameObject("board");
@@ -303,6 +321,11 @@ namespace Tower.Game
             else if (here.Type == EntityType.Stairs)
             {
                 _audio.Play(AudioBank.Stairs);
+                // 樓層間真的走得通了；座標對齊規約：落在對應的另一道樓梯上
+                if (here.Stairs == StairsDirection.Up && _state.CurrentFloor == "F01")
+                { LoadFloor("F02", F02.StairsDownPos); return; }
+                if (here.Stairs == StairsDirection.Down && _state.CurrentFloor == "F02")
+                { LoadFloor("F01", F01.StairsUpPos); return; }
                 _hud.Toast(_text["msg_demo_end"], 5f);
             }
         }

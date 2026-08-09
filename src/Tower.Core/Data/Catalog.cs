@@ -17,17 +17,26 @@ namespace Tower.Core.Data
     {
         public IReadOnlyDictionary<string, MonsterDefinition> Monsters { get; }
         public IReadOnlyDictionary<string, ItemDefinition> Items { get; }
+        public IReadOnlyDictionary<string, ShopDefinition> Shops { get; }
+        public IReadOnlyDictionary<string, AltarDefinition> Altars { get; }
 
         private Catalog(
             Dictionary<string, MonsterDefinition> monsters,
-            Dictionary<string, ItemDefinition> items)
+            Dictionary<string, ItemDefinition> items,
+            Dictionary<string, ShopDefinition> shops,
+            Dictionary<string, AltarDefinition> altars)
         {
             Monsters = monsters;
             Items = items;
+            Shops = shops;
+            Altars = altars;
         }
 
-        public static Catalog Load(string monstersCsv, string itemsCsv)
-            => new Catalog(ParseMonsters(monstersCsv), ParseItems(itemsCsv));
+        /// <summary>shops/altars 可省略——只驗戰鬥公式的測試不需要它們。</summary>
+        public static Catalog Load(string monstersCsv, string itemsCsv,
+                                   string shopsCsv = null, string altarsCsv = null)
+            => new Catalog(ParseMonsters(monstersCsv), ParseItems(itemsCsv),
+                           ParseShops(shopsCsv), ParseAltars(altarsCsv));
 
         // id,name_zh,atk,def,hp,agility,traits,gold_drop,exp_drop,is_guardian,sprite,bestiary_note
         private const int MonsterColumns = 12;
@@ -104,6 +113,46 @@ namespace Tower.Core.Data
             }
             return result;
         }
+
+        // shop_id,item_id,base_price,price_step
+        public static Dictionary<string, ShopDefinition> ParseShops(string csv)
+        {
+            var byId = new Dictionary<string, List<ShopOffer>>();
+            foreach (var c in Csv.Rows(csv ?? "", 4))
+            {
+                string id = c[0].Trim();
+                if (id.Length == 0) continue;
+                if (!byId.TryGetValue(id, out var list)) byId[id] = list = new List<ShopOffer>();
+                list.Add(new ShopOffer(c[1].Trim(), Csv.Int(c[2]), Csv.Int(c[3])));
+            }
+            var result = new Dictionary<string, ShopDefinition>();
+            foreach (var kv in byId) result[kv.Key] = new ShopDefinition(kv.Key, kv.Value);
+            return result;
+        }
+
+        // altar_id,stat,exp_cost,gain,cost_step
+        public static Dictionary<string, AltarDefinition> ParseAltars(string csv)
+        {
+            var byId = new Dictionary<string, List<AltarOffer>>();
+            foreach (var c in Csv.Rows(csv ?? "", 5))
+            {
+                string id = c[0].Trim();
+                if (id.Length == 0) continue;
+                if (!byId.TryGetValue(id, out var list)) byId[id] = list = new List<AltarOffer>();
+                list.Add(new AltarOffer(ParseStat(c[1]), Csv.Int(c[2]), Csv.Int(c[3]), Csv.Int(c[4])));
+            }
+            var result = new Dictionary<string, AltarDefinition>();
+            foreach (var kv in byId) result[kv.Key] = new AltarDefinition(kv.Key, kv.Value);
+            return result;
+        }
+
+        private static AltarStat ParseStat(string s) => s.Trim().ToLowerInvariant() switch
+        {
+            "atk" => AltarStat.Atk,
+            "def" => AltarStat.Def,
+            "hp" => AltarStat.Hp,
+            _ => throw new ArgumentException($"未知的祭壇屬性 '{s}'"),
+        };
 
         private static ItemCategory ParseCategory(string s) => s.Trim() switch
         {

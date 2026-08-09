@@ -37,7 +37,9 @@ namespace Tower.Verify
 
             var catalog = Catalog.Load(
                 File.ReadAllText(Path.Combine(dataDir, "monsters.csv")),
-                File.ReadAllText(Path.Combine(dataDir, "items.csv")));
+                File.ReadAllText(Path.Combine(dataDir, "items.csv")),
+                File.ReadAllText(Path.Combine(dataDir, "shops.csv")),
+                File.ReadAllText(Path.Combine(dataDir, "altars.csv")));
 
 
             DataChecks(catalog);

@@ -21,3 +21,6 @@ assets/fonts/
 # Godot 產生的匯入中繼檔（.godot/ 重建時會重生，不該進版控）
 *.uid
 *.import
+
+# 編輯器輸出（user:// 底下，不該進版控——要進塔的樓層請手動搬到 data/floors/）
+floors_out/

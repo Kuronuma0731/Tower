@@ -19,10 +19,58 @@ namespace Tower.Verify
         {
             Console.WriteLine("== 存檔（D7）==");
 
+            ShopAndAltarRoundTrip(catalog, check);
             RoundTrip(catalog, check);
             UndoIsExact(catalog, check);
             SingleTimeline(check);
             FloorEntryClearsStream(check);
+        }
+
+        /// <summary>
+        /// 商店與祭壇：遞增價、回溯、存讀往返。
+        ///
+        /// 新增指令型別時最危險的漏洞是**忘了加進 CommandCodec**——存檔會靜默漏掉那一步，
+        /// 玩家讀檔後發現買的東西不見了。這條檢查就是為了讓那件事變成紅燈。
+        /// </summary>
+        private static void ShopAndAltarRoundTrip(Catalog catalog, Action<string, bool> check)
+        {
+            check($"shops.csv {catalog.Shops.Count} 家、altars.csv {catalog.Altars.Count} 座",
+                catalog.Shops.Count >= 1 && catalog.Altars.Count >= 1);
+
+            var shop = catalog.Shops["shop_f03"];
+            var offer = shop.Offers.First(o => o.ItemId == "key_yellow");
+            check($"遞增價：第 1 次 {offer.PriceAt(0)}、第 2 次 {offer.PriceAt(1)}、第 3 次 {offer.PriceAt(2)}",
+                offer.PriceAt(0) == 50 && offer.PriceAt(1) == 75 && offer.PriceAt(2) == 100);
+
+            var altar = catalog.Altars["altar_std"];
+            var atk = altar.Offers.First(o => o.Stat == AltarStat.Atk);
+            check($"祭壇遞增價、各屬性獨立計數：攻第 1 次 {atk.CostAt(0)}、第 2 次 {atk.CostAt(1)}",
+                atk.CostAt(0) == 20 && atk.CostAt(1) == 25);
+
+            var save = new SaveGame(new GameState { Atk = 10, Def = 10, Hp = 1000, Gold = 300, Exp = 100 });
+            save.EnterFloor("DEV_SETTINGS");
+            var before = save.State.Clone();
+
+            save.Apply(new PurchaseCommand(shop.Id, catalog.Items[offer.ItemId], offer.PriceAt(0)));
+            save.Apply(new PurchaseCommand(shop.Id, catalog.Items[offer.ItemId], offer.PriceAt(1)));
+            save.Apply(new AltarExchangeCommand(altar.Id, atk, atk.CostAt(0)));
+
+            check($"買兩把鑰匙＋兌一次攻：金 {save.State.Gold}、鑰匙 {save.State.KeysYellow}、攻 {save.State.Atk}、經驗 {save.State.Exp}",
+                save.State.Gold == 300 - 50 - 75 && save.State.KeysYellow == 2
+                && save.State.Atk == 11 && save.State.Exp == 80);
+
+            var loaded = SaveGame.FromData(SaveData.FromJson(save.ToData().ToJson()));
+            check("商店/祭壇指令進得了存檔（沒漏進 CommandCodec）",
+                loaded.UndoDepth == 3 && loaded.State.Gold == save.State.Gold
+                && loaded.State.Atk == save.State.Atk
+                && loaded.State.PurchaseCounts.OrderBy(k => k.Key).SequenceEqual(
+                       save.State.PurchaseCounts.OrderBy(k => k.Key)));
+
+            while (save.UndoOne()) { }
+            check("回溯到底＝買賣前（含遞增計價的計數歸零）",
+                save.State.Gold == before.Gold && save.State.Atk == before.Atk
+                && save.State.Exp == before.Exp && save.State.KeysYellow == before.KeysYellow
+                && save.State.PurchaseCounts.Count == 0);
         }
 
         /// <summary>存 → 讀 → 完全相等。含 eid 帳本與遞增計價的計數。</summary>

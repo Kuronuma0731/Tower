@@ -1,0 +1,54 @@
+{
+  "id": "DEV_SETTINGS",
+  "name_zh": "設定層",
+
+  "//": "開發用測試場，**不出貨**。只在 debug 建置載入（GameRoot.LoadFloors）。",
+  "//1": "id 不是 F## 格式，所以 FloorRegistry 不把它算進塔：不排順序、不做樓梯配對、走不進去。",
+  "//2": "每個功能各擺一份，方便逐項測。改功能時先在這裡驗，再放進正式樓層。",
+
+  "terrain": [
+    "WWWWWWWWWWWWW",
+    "W...........W",
+    "W.WWWWWWWWW.W",
+    "W.W.......W.W",
+    "W.W.WWWWW.W.W",
+    "W.W.W...W.W.W",
+    "W...W.^.W...W",
+    "W.W.W...W.W.W",
+    "W.W.WWWWW.W.W",
+    "W.W.......W.W",
+    "W.WWWWWWWWW.W",
+    "W...........W",
+    "WWWWWWWWWWWWW"
+  ],
+
+  "entities": [
+    { "eid": "DEV_sp1", "type": "spawn", "x": 6, "y": 1 },
+
+    { "//": "商店與祭壇：D8 雙貨幣的兩個出口", "eid": "DEV_sh1", "type": "shop", "ref": "shop_f03", "x": 3, "y": 3 },
+    { "eid": "DEV_a01", "type": "altar", "ref": "altar_std", "x": 9, "y": 3 },
+
+    { "//": "三階門與對應鑰匙：D10", "eid": "DEV_d01", "type": "door", "tier": "yellow", "x": 5, "y": 6 },
+    { "eid": "DEV_d02", "type": "door", "tier": "blue", "x": 7, "y": 6 },
+    { "eid": "DEV_d03", "type": "door", "tier": "red", "x": 6, "y": 5 },
+    { "eid": "DEV_i01", "type": "item", "ref": "key_yellow", "x": 1, "y": 1 },
+    { "eid": "DEV_i02", "type": "item", "ref": "key_blue", "x": 11, "y": 1 },
+    { "eid": "DEV_i03", "type": "item", "ref": "key_red", "x": 1, "y": 11 },
+
+    { "//": "各類道具", "eid": "DEV_i04", "type": "item", "ref": "potion_s", "x": 3, "y": 9 },
+    { "eid": "DEV_i05", "type": "item", "ref": "potion_l", "x": 9, "y": 9 },
+    { "eid": "DEV_i06", "type": "item", "ref": "gem_atk", "x": 3, "y": 5 },
+    { "eid": "DEV_i07", "type": "item", "ref": "gem_def", "x": 9, "y": 5 },
+    { "//": "沙漏：回溯的付費資源（D7）", "eid": "DEV_i08", "type": "item", "ref": "hourglass", "x": 11, "y": 11 },
+
+    { "//": "特性測試：一般 / 魔攻(無視防禦) / 連擊 / 迴避 / 先攻+連擊守關", "eid": "DEV_m01", "type": "monster", "ref": "slime_green", "x": 5, "y": 3 },
+    { "eid": "DEV_m02", "type": "monster", "ref": "ghost_pale", "x": 6, "y": 3 },
+    { "eid": "DEV_m03", "type": "monster", "ref": "wasp_striker", "x": 7, "y": 3 },
+    { "eid": "DEV_m04", "type": "monster", "ref": "slimeman", "x": 5, "y": 9 },
+    { "eid": "DEV_m05", "type": "monster", "ref": "gatekeeper_biped", "x": 7, "y": 9 },
+
+    { "//": "NPC 對話", "eid": "DEV_n01", "type": "npc", "dialogue": "dlg_f01_intro", "x": 1, "y": 6 },
+
+    { "//": "上樓梯：設定層不接塔，踏上去只會顯示提示", "eid": "DEV_s01", "type": "stairs", "dir": "up", "x": 11, "y": 6 }
+  ]
+}

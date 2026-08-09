@@ -38,6 +38,10 @@ namespace Tower.Core.Save
             PickupItemCommand p => new CommandRecord("pickup", p.Eid,
                 p.DKeyY, p.DKeyB, p.DKeyR, p.DHp, p.DAtk, p.DDef, p.DHourglass),
             CollisionBattleCommand b => new CommandRecord("battle", b.Eid, b.HpLoss, b.GoldDrop, b.ExpDrop),
+            PurchaseCommand p => new CommandRecord("buy", p.CountKey,
+                p.Price, p.DKeyY, p.DKeyB, p.DKeyR, p.DHp, p.DAtk, p.DDef, p.DHourglass),
+            AltarExchangeCommand a => new CommandRecord("altar", a.CountKey,
+                a.ExpCost, a.DAtk, a.DDef, a.DHp),
             _ => throw new ArgumentException($"未知的指令型別 {cmd.GetType().Name}——存檔會漏掉這一步，必須在 CommandCodec 補上"),
         };
 
@@ -48,6 +52,9 @@ namespace Tower.Core.Save
             "pickup" => PickupItemCommand.FromDeltas(r.Eid,
                 V(r, 0), V(r, 1), V(r, 2), V(r, 3), V(r, 4), V(r, 5), V(r, 6)),
             "battle" => CollisionBattleCommand.FromDeltas(r.Eid, V(r, 0), V(r, 1), V(r, 2)),
+            "buy" => PurchaseCommand.FromDeltas(r.Eid,
+                V(r, 0), V(r, 1), V(r, 2), V(r, 3), V(r, 4), V(r, 5), V(r, 6), V(r, 7)),
+            "altar" => AltarExchangeCommand.FromDeltas(r.Eid, V(r, 0), V(r, 1), V(r, 2), V(r, 3)),
             _ => throw new ArgumentException($"存檔含未知的指令種類 '{r.Kind}'"),
         };
 

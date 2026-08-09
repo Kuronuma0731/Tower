@@ -31,9 +31,15 @@ namespace Tower.Core.Floors
         public FloorRegistry(IEnumerable<FloorDefinition> floors)
         {
             _floors = floors.ToDictionary(f => f.Id);
-            _order = _floors.Keys.OrderBy(NumberOf).ToList();
+            // 只有 F## 的樓層屬於「塔」——設定層之類的開發用樓層 id 不是這個格式，
+            // 它們查得到、但不排進順序、不參與樓梯配對，也走不到（TryTravel 只走塔內）。
+            _order = _floors.Keys.Where(IsTowerFloor).OrderBy(NumberOf).ToList();
             ValidateStairPairing();
         }
+
+        /// <summary>是不是塔的一層（id 形如 F00、F07）。不是的話就是開發用樓層。</summary>
+        public static bool IsTowerFloor(string id)
+            => id.Length >= 2 && id[0] == 'F' && int.TryParse(id.AsSpan(1), out _);
 
         public FloorDefinition this[string id] => _floors.TryGetValue(id, out var f)
             ? f
@@ -56,6 +62,7 @@ namespace Tower.Core.Floors
         {
             toId = null;
             landing = default;
+            if (!IsTowerFloor(fromId)) return false;   // 開發用樓層不接到塔上
 
             int target = NumberOf(fromId) + (dir == StairsDirection.Up ? 1 : -1);
             string candidate = "F" + target.ToString("D2");

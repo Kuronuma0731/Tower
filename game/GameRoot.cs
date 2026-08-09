@@ -25,6 +25,7 @@ namespace Tower.Game
         private ViewFactory _view;
         private HudView _hud;
         private BattleView _battleView;
+        private ShopView _shopView;
         private TextBank _text;
         private Catalog _catalog;
         private FloorRegistry _floors;
@@ -55,12 +56,15 @@ namespace Tower.Game
         public override void _Ready()
         {
             _text = TextBank.Load();
-            _catalog = Catalog.Load(TextBank.ReadCsv("monsters.csv"), TextBank.ReadCsv("items.csv"));
+            _catalog = Catalog.Load(
+                TextBank.ReadCsv("monsters.csv"), TextBank.ReadCsv("items.csv"),
+                TextBank.ReadCsv("shops.csv"), TextBank.ReadCsv("altars.csv"));
             _floors = LoadFloors();
 
             _view = new ViewFactory();
             _hud = new HudView(_view, _text, this);
             _battleView = new BattleView(this, _view, _hud, _text);
+            _shopView = new ShopView(_view, _text, this);
 
             // 虛擬方向鍵（D9）：左下角，橫向雙手持握時落在左拇指下
             _pad = TouchPad.Create(this, PadCenter);
@@ -90,18 +94,29 @@ namespace Tower.Game
         /// </summary>
         private static FloorRegistry LoadFloors()
         {
-            var dir = DirAccess.Open("res://data/floors");
-            if (dir == null) throw new System.InvalidOperationException("找不到 res://data/floors");
-
             var floors = new List<FloorDefinition>();
+            ReadFloorsFrom("res://data/floors", floors, required: true);
+
+            // **設定層等開發用樓層只在 debug 建置載入**——正式出貨的包裡不會有它們。
+            // 它們的 id 不是 F## 格式，所以就算誤入包中也不會排進塔（見 FloorRegistry）。
+            if (OS.IsDebugBuild()) ReadFloorsFrom("res://data/dev", floors, required: false);
+
+            return new FloorRegistry(floors);
+        }
+
+        private static void ReadFloorsFrom(string dirPath, List<FloorDefinition> into, bool required)
+        {
+            var dir = DirAccess.Open(dirPath);
+            if (dir == null)
+            {
+                if (required) throw new System.InvalidOperationException($"找不到 {dirPath}");
+                return;
+            }
             foreach (var file in dir.GetFiles())
             {
-                // 匯出後 .json 會被打包成 .json（Godot 不轉換），編輯器內另有 .import 之類要略過
                 if (!file.EndsWith(".json")) continue;
-                floors.Add(FloorJson.Parse(
-                    Godot.FileAccess.GetFileAsString($"res://data/floors/{file}")));
+                into.Add(FloorJson.Parse(Godot.FileAccess.GetFileAsString($"{dirPath}/{file}")));
             }
-            return new FloorRegistry(floors);
         }
 
         /// <summary>
@@ -126,6 +141,22 @@ namespace Tower.Game
             _pad.Visible = false;
             _hud.Visible = false;
             _editor.Open(_state.CurrentFloor);
+        }
+
+        /// <summary>
+        /// 跳到設定層——功能的測試場。給足資源，才測得動商店與祭壇。
+        /// 只在 debug 建置存在；release 沒有這一層，這裡會靜默不動作。
+        /// </summary>
+        private void JumpToDevFloor()
+        {
+            const string id = "DEV_SETTINGS";
+            if (!_floors.Has(id)) return;
+
+            _state.Gold = 500;
+            _state.Exp = 200;
+            _state.Hourglasses = 3;
+            LoadFloor(id);
+            _hud.Toast(_floors[id].NameZh, 2.0);
         }
 
         /// <summary>方向鍵中心：貼左下，離邊留出安全距離（瀏海／圓角／手勢列）。</summary>
@@ -262,8 +293,12 @@ namespace Tower.Game
 
         public override void _UnhandledInput(InputEvent ev)
         {
-            // F2：開關關卡編輯器（floor-authoring.md ③）。開發工具，不是玩家功能。
+            // F2 開關卡編輯器、F3 跳設定層。兩者都是**開發工具**，release 建置不存在
+            // （設定層只在 debug 載入；沒載到就跳不過去）。
             if (ev.IsActionPressed("editor_toggle")) { ToggleEditor(); return; }
+            if (ev.IsActionPressed("dev_floor")) { JumpToDevFloor(); return; }
+
+            if (_shopView.Open) return;   // 面板開著時不吃移動
 
             if (_editor != null && _editor.Active)
             {
@@ -352,6 +387,17 @@ namespace Tower.Game
 
                 case EntityType.Npc:
                     StartDialogue(e.DialogueId);
+                    return;
+
+                // 商店/祭壇是**互動點不是障礙**：站在旁邊開面板，不佔用移動
+                case EntityType.Shop:
+                    if (_catalog.Shops.TryGetValue(e.Ref, out var shop))
+                        _shopView.ShowShop(shop, _catalog, _state, Apply, RefreshHud);
+                    return;
+
+                case EntityType.Altar:
+                    if (_catalog.Altars.TryGetValue(e.Ref, out var altar))
+                        _shopView.ShowAltar(altar, _state, Apply, RefreshHud);
                     return;
 
                 case EntityType.Monster:
@@ -500,10 +546,16 @@ namespace Tower.Game
             _hud.SetStats(_state);
         }
 
+        /// <summary>
+        /// 樓層標籤。開發用樓層（設定層）的 id 不是 F## 格式——
+        /// 直接 int.Parse 會擲例外，把整個 RefreshHud 中斷掉，畫面就停在上一層的資訊
+        /// （實測踩過：棋盤換了但橫幅還寫著 0F 塔外）。
+        /// </summary>
         private string FloorLabel()
         {
-            int n = int.Parse(_state.CurrentFloor.Substring(1));
-            return _text["msg_floor_enter"].Replace("{n}", n.ToString());
+            if (!FloorRegistry.IsTowerFloor(_state.CurrentFloor)) return "";
+            return _text["msg_floor_enter"]
+                .Replace("{n}", FloorRegistry.NumberOf(_state.CurrentFloor).ToString());
         }
 
         /// <summary>常駐傷害預覽——D7「不設確認」的前提：戰前就看得到代價。</summary>

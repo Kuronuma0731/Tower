@@ -62,6 +62,10 @@ editor_toggle={
 "deadzone": 0.2,
 "events": [Object(InputEventKey,"keycode":4194333,"physical_keycode":0,"unicode":0,"pressed":true)]
 }
+dev_floor={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"keycode":4194334,"physical_keycode":0,"unicode":0,"pressed":true)]
+}
 
 [input_devices]
 

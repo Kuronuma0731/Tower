@@ -59,3 +59,8 @@ msg_nothing_to_undo,已經在樓層入口
 lbl_editor,關卡編輯器
 lbl_verify,驗證
 lbl_save,輸出 JSON
+lbl_shop,商店
+lbl_altar,祭壇
+lbl_leave,離開
+msg_cannot_afford,不夠
+msg_dev_floor_top,設定層不接到塔上

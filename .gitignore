@@ -17,3 +17,7 @@ art/
 assets/sprites/
 assets/audio/
 assets/fonts/
+
+# Godot 產生的匯入中繼檔（.godot/ 重建時會重生，不該進版控）
+*.uid
+*.import

@@ -14,6 +14,11 @@ namespace Tower.Core.Combat
 
         public static CollisionOutcome ResolveCollision(in PlayerStats player, MonsterDefinition monster)
         {
+            // 特殊戰鬥：代價寫死，與雙方數值無關，且必定可勝（劇情性關卡用）
+            if (monster.Traits.HasFlag(TraitSet.FixedLoss))
+                return CollisionOutcome.Win(Math.Max(0, monster.TraitValue), 1, 0);
+
+            int weakenPerHit = DamageFormula.WeakenPerHit(monster);
             int playerHit = DamageFormula.PlayerHit(player, monster);
             if (playerHit == 0)
                 return CollisionOutcome.Unwinnable; // 打不動：不得除零（規格明定分支）
@@ -33,6 +38,7 @@ namespace Tower.Core.Combat
             long loss = 0;
             int attacks = 0;
             int misses = 0;
+            int atkPenalty = 0;   // 衰弱累積量（本場戰鬥內）
 
             // D15 迴避：每次出手累加敏捷，滿 100 即落空一次——落空比例恰為敏捷%，
             // 且**次數算死**。哪幾下落空由表現層隨機挑，總帳不受影響。
@@ -65,6 +71,16 @@ namespace Tower.Core.Combat
 
                 loss += damagePerOccasion;   // 落空與否，怪都會回擊
                 monsterHp += healPerOccasion;
+
+                // 衰弱：每挨一次，我方的刀就鈍一分（本場戰鬥內累積）。
+                // 削減歸零即不可擊殺——AttackCap 也擋得住，但這裡提早收斂，
+                // 免得白跑上萬次迴圈才回報同一個結論。
+                if (weakenPerHit > 0)
+                {
+                    atkPenalty += weakenPerHit;
+                    playerHit = DamageFormula.PlayerHit(player, monster, atkPenalty);
+                    if (playerHit <= 0) return CollisionOutcome.Unwinnable;
+                }
             }
 
             return CollisionOutcome.Win((int)loss, attacks, misses);

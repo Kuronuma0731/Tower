@@ -55,6 +55,7 @@ namespace Tower.Core.Save
         public int Y { get; set; }
         public List<string> Consumed { get; set; } = new();
         public List<string> SeenMonsters { get; set; } = new();
+        public Dictionary<string, string> Revived { get; set; } = new();
         public Dictionary<string, int> PurchaseCounts { get; set; } = new();
 
         public static StateData From(GameState s) => new()
@@ -65,6 +66,7 @@ namespace Tower.Core.Save
             X = s.Position.X, Y = s.Position.Y,
             Consumed = s.ConsumedEids.OrderBy(e => e).ToList(),   // 排序 → 存檔可 diff
             SeenMonsters = s.SeenMonsters.OrderBy(e => e).ToList(),
+            Revived = new Dictionary<string, string>(s.RevivedMonsters),
             PurchaseCounts = new Dictionary<string, int>(s.PurchaseCounts),
         };
 
@@ -80,6 +82,7 @@ namespace Tower.Core.Save
             };
             foreach (var e in Consumed) s.ConsumedEids.Add(e);
             foreach (var m in SeenMonsters) s.SeenMonsters.Add(m);
+            foreach (var kv in Revived) s.RevivedMonsters[kv.Key] = kv.Value;
             foreach (var kv in PurchaseCounts) s.PurchaseCounts[kv.Key] = kv.Value;
             return s;
         }

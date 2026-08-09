@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using Tower.Core.Combat;
@@ -19,6 +20,7 @@ namespace Tower.Verify
         {
             Console.WriteLine("== 存檔（D7）==");
 
+            ReviveIsTwoKills(catalog, check);
             SwitchUndoIsPrecise(check);
             BestiaryIsKnowledgeNotResource(catalog, check);
             ShopAndAltarRoundTrip(catalog, check);
@@ -26,6 +28,45 @@ namespace Tower.Verify
             UndoIsExact(catalog, check);
             SingleTimeline(check);
             FloorEntryClearsStream(check);
+        }
+
+        /// <summary>
+        /// 擊殺後再生：**同一格要付兩次錢**。第一刀之後格子沒清空，站著較弱的同系怪；
+        /// 第二刀才真的清掉。回溯必須能逐段還原——這是實體層特性最容易寫錯的地方。
+        /// </summary>
+        private static void ReviveIsTwoKills(Catalog catalog, Action<string, bool> check)
+        {
+            var save = new SaveGame(new GameState { Atk = 40, Def = 30, Hp = 3000 });
+            save.EnterFloor("DEV_SETTINGS");
+
+            var king = catalog.Monsters["slime_king"];
+            save.Apply(new CollisionBattleCommand("DEV_m06",
+                CombatResolver.ResolveCollision(save.State.CombatStats, king), king));
+
+            check($"第一刀：格子沒清空，換成 {save.State.RevivedMonsters.GetValueOrDefault("DEV_m06")}",
+                save.State.RevivedMonsters.GetValueOrDefault("DEV_m06") == king.ReviveInto);
+
+            var weaker = catalog.Monsters[king.ReviveInto];
+            save.Apply(new CollisionBattleCommand("DEV_m06",
+                CombatResolver.ResolveCollision(save.State.CombatStats, weaker), weaker));
+
+            check("第二刀：這次真的清空",
+                !save.State.RevivedMonsters.ContainsKey("DEV_m06")
+                && save.State.ConsumedEids.Contains("DEV_m06"));
+
+            save.UndoOne();
+            check("回溯一步：退回「再生中」而不是直接復活成王",
+                save.State.RevivedMonsters.GetValueOrDefault("DEV_m06") == king.ReviveInto);
+
+            save.UndoOne();
+            check("回溯到底：完全沒打過",
+                save.State.RevivedMonsters.Count == 0 && save.State.ConsumedEids.Count == 0);
+
+            save.Apply(new CollisionBattleCommand("DEV_m06",
+                CombatResolver.ResolveCollision(save.State.CombatStats, king), king));
+            var loaded = SaveGame.FromData(SaveData.FromJson(save.ToData().ToJson()));
+            check("再生狀態進得了存檔",
+                loaded.State.RevivedMonsters.GetValueOrDefault("DEV_m06") == king.ReviveInto);
         }
 
         /// <summary>

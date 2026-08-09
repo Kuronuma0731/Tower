@@ -38,8 +38,8 @@ namespace Tower.Core.Data
             => new Catalog(ParseMonsters(monstersCsv), ParseItems(itemsCsv),
                            ParseShops(shopsCsv), ParseAltars(altarsCsv));
 
-        // id,name_zh,atk,def,hp,agility,traits,gold_drop,exp_drop,is_guardian,sprite,bestiary_note
-        private const int MonsterColumns = 12;
+        // id,name_zh,atk,def,hp,agility,traits,gold_drop,exp_drop,is_guardian,sprite,trait_value,revive_into,bestiary_note
+        private const int MonsterColumns = 14;
 
         public static Dictionary<string, MonsterDefinition> ParseMonsters(string csv)
         {
@@ -61,7 +61,9 @@ namespace Tower.Core.Data
                     isGuardian: Csv.Bool(c[9]),
                     nameZh: c[1].Trim(),
                     agility: Csv.Int(c[5]),
-                    bestiaryNote: c[11].Trim());
+                    bestiaryNote: c[13].Trim(),
+                    traitValue: Csv.Int(c[11]),
+                    reviveInto: c[12].Trim());
             }
             return result;
         }
@@ -85,6 +87,10 @@ namespace Tower.Core.Data
                     "multi_hit" => TraitSet.MultiHit,
                     "pierce" => TraitSet.Pierce,
                     "lifesteal" => TraitSet.Lifesteal,
+                    "adaptive_defense" => TraitSet.AdaptiveDefense,
+                    "fixed_loss" => TraitSet.FixedLoss,
+                    "weaken" => TraitSet.Weaken,
+                    "revive_as_weaker" => TraitSet.ReviveAsWeaker,
                     _ => throw new ArgumentException($"未知的怪物特性：'{name}'"),
                 };
             }

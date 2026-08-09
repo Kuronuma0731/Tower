@@ -37,7 +37,10 @@ namespace Tower.Core.Save
             OpenDoorCommand d => new CommandRecord("door", d.Eid, (int)d.Tier),
             PickupItemCommand p => new CommandRecord("pickup", p.Eid,
                 p.DKeyY, p.DKeyB, p.DKeyR, p.DHp, p.DAtk, p.DDef, p.DHourglass),
-            CollisionBattleCommand b => new CommandRecord("battle", b.Eid, b.HpLoss, b.GoldDrop, b.ExpDrop),
+            // 再生目標是字串，Values 只裝 int——夾在 Eid 欄位後面（eid 不含 '>'）
+            CollisionBattleCommand b => new CommandRecord("battle",
+                b.ReviveInto == null ? b.Eid : b.Eid + ">" + b.ReviveInto,
+                b.HpLoss, b.GoldDrop, b.ExpDrop),
             // 機關的資料是 eid 清單而不是數字，而 CommandRecord 的 Values 只裝 int——
             // 故以 Eid 欄位夾帶「自己|目標1|目標2」。eid 不含 '|'（由編輯器產生，格式固定）。
             SwitchCommand sw => new CommandRecord("switch", string.Join("|", Prepend(sw.Eid, sw.Targets))),
@@ -54,7 +57,7 @@ namespace Tower.Core.Save
             "door" => new OpenDoorCommand(r.Eid, (KeyTier)V(r, 0)),
             "pickup" => PickupItemCommand.FromDeltas(r.Eid,
                 V(r, 0), V(r, 1), V(r, 2), V(r, 3), V(r, 4), V(r, 5), V(r, 6)),
-            "battle" => CollisionBattleCommand.FromDeltas(r.Eid, V(r, 0), V(r, 1), V(r, 2)),
+            "battle" => MakeBattle(r),
             "switch" => MakeSwitch(r.Eid),
             "buy" => PurchaseCommand.FromDeltas(r.Eid,
                 V(r, 0), V(r, 1), V(r, 2), V(r, 3), V(r, 4), V(r, 5), V(r, 6), V(r, 7)),
@@ -68,6 +71,14 @@ namespace Tower.Core.Save
             all[0] = first;
             Array.Copy(rest, 0, all, 1, rest.Length);
             return all;
+        }
+
+        private static IGameCommand MakeBattle(in CommandRecord r)
+        {
+            int arrow = r.Eid.IndexOf('>');
+            string eid = arrow < 0 ? r.Eid : r.Eid.Substring(0, arrow);
+            string revive = arrow < 0 ? null : r.Eid.Substring(arrow + 1);
+            return CollisionBattleCommand.FromDeltas(eid, V(r, 0), V(r, 1), V(r, 2), revive);
         }
 
         private static IGameCommand MakeSwitch(string packed)

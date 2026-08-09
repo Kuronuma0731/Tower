@@ -47,6 +47,11 @@
     { "eid": "DEV_m04", "type": "monster", "ref": "slimeman", "x": 5, "y": 9 },
     { "eid": "DEV_m05", "type": "monster", "ref": "gatekeeper_biped", "x": 7, "y": 9 },
 
+    { "//": "新特性：擊殺後再生 / 適應性防禦 / 衰弱 / 固定扣血", "eid": "DEV_m06", "type": "monster", "ref": "slime_king", "x": 3, "y": 7 },
+    { "eid": "DEV_m07", "type": "monster", "ref": "golem_adaptive", "x": 9, "y": 7 },
+    { "eid": "DEV_m08", "type": "monster", "ref": "knight_weaken", "x": 5, "y": 7 },
+    { "eid": "DEV_m09", "type": "monster", "ref": "duel_scripted", "x": 7, "y": 7 },
+
     { "//": "NPC 對話", "eid": "DEV_n01", "type": "npc", "dialogue": "dlg_f01_intro", "x": 1, "y": 6 },
 
     { "eid": "DEV_s01", "type": "stairs", "dir": "up", "x": 11, "y": 6 },

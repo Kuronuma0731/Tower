@@ -44,6 +44,7 @@ namespace Tower.Verify
 
             DataChecks(catalog);
             FormulaChecks();
+            NewTraitChecks(catalog);
             EvasionChecks();
             CommandChecks();
             GridChecks();
@@ -109,6 +110,58 @@ namespace Tower.Verify
             Check($"吸血淨削減 loss={ls.ExpectedLoss} rounds={ls.Rounds}（期望 30/6）", ls.ExpectedLoss == 30 && ls.Rounds == 6);
             Check("吸血淨零 → 無法戰勝",
                 !CombatResolver.ResolveCollision(new PlayerStats(16, 10), bat).Winnable);
+        }
+
+        /// <summary>
+        /// 四種新特性（CONTEXT D1 擴充清單的確定性項目）。
+        /// 全部必須可算——預覽與驗證器都建立在「結果可預測」上（D1、D15）。
+        /// </summary>
+        private static void NewTraitChecks(Catalog catalog)
+        {
+            Console.WriteLine("== 新特性 ==");
+
+            // 適應性防禦：防禦跟著攻擊漲，我方單擊被壓在 trait_value
+            var golem = catalog.Monsters["golem_adaptive"];
+            int hitLow = DamageFormula.PlayerHit(new PlayerStats(30, 20), golem);
+            int hitHigh = DamageFormula.PlayerHit(new PlayerStats(200, 20), golem);
+            Check($"適應性防禦：攻30 單擊 {hitLow}、攻200 單擊 {hitHigh}（都被壓在 {golem.TraitValue}）",
+                hitLow == golem.TraitValue && hitHigh == golem.TraitValue);
+
+            var farBelow = CombatResolver.ResolveCollision(new PlayerStats(30, 20), golem);
+            var farAbove = CombatResolver.ResolveCollision(new PlayerStats(200, 20), golem);
+            Check($"堆攻擊對牠無效：攻30 損 {farBelow.ExpectedLoss}、攻200 損 {farAbove.ExpectedLoss}（相同）",
+                farBelow.ExpectedLoss == farAbove.ExpectedLoss && farBelow.Winnable);
+
+            // 特殊戰鬥：固定損血，與數值無關
+            var duel = catalog.Monsters["duel_scripted"];
+            var weak = CombatResolver.ResolveCollision(new PlayerStats(10, 10), duel);
+            var strong = CombatResolver.ResolveCollision(new PlayerStats(999, 999), duel);
+            Check($"特殊戰鬥固定損 {weak.ExpectedLoss}，堆到 999/999 仍是 {strong.ExpectedLoss}",
+                weak.Winnable && weak.ExpectedLoss == duel.TraitValue
+                && strong.ExpectedLoss == duel.TraitValue);
+
+            // 衰弱：拖越久越砍不動，所以攻擊高一點省下的血是超線性的
+            var knight = catalog.Monsters["knight_weaken"];
+            var slow = CombatResolver.ResolveCollision(new PlayerStats(40, 20), knight);
+            var fast = CombatResolver.ResolveCollision(new PlayerStats(70, 20), knight);
+            Check($"衰弱：攻40 損 {slow.ExpectedLoss}／{slow.Rounds} 回合，攻70 損 {fast.ExpectedLoss}／{fast.Rounds} 回合",
+                slow.Winnable && fast.Winnable && fast.ExpectedLoss < slow.ExpectedLoss
+                && fast.Rounds < slow.Rounds);
+
+            var tooWeak = CombatResolver.ResolveCollision(new PlayerStats(17, 20), knight);
+            Check($"衰弱把刀鈍到砍不動 → 不可擊殺（且不跑滿上限）", !tooWeak.Winnable);
+
+            // 擊殺後再生：資料層的目標必須存在，否則就是 dangling reference
+            var king = catalog.Monsters["slime_king"];
+            Check($"擊殺後再生：{king.NameZh} → {king.ReviveInto}（目標存在於資料表）",
+                king.Traits.HasFlag(TraitSet.ReviveAsWeaker)
+                && king.ReviveInto != null && catalog.Monsters.ContainsKey(king.ReviveInto));
+
+            var dangling = catalog.Monsters.Values
+                .Where(m => m.ReviveInto != null && !catalog.Monsters.ContainsKey(m.ReviveInto))
+                .Select(m => m.Id).ToArray();
+            Check($"沒有指向不存在怪物的再生目標" + (dangling.Length > 0 ? $"（{string.Join(",", dangling)}）" : ""),
+                dangling.Length == 0);
         }
 
         private static void EvasionChecks()

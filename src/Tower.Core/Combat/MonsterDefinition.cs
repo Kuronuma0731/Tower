@@ -31,11 +31,24 @@ namespace Tower.Core.Combat
         /// </summary>
         public string BestiaryNote { get; }
 
+        /// <summary>
+        /// 帶參數特性的數值（monsters.csv 的 trait_value）。**意義由特性決定**：
+        /// 適應性防禦＝我方單擊被壓到的上限；衰弱＝每挨一下扣多少攻擊；固定扣血＝損血量。
+        /// 一隻怪實務上最多帶一種帶參數的特性，所以共用一欄；混用時以上述順序取先者。
+        /// </summary>
+        public int TraitValue { get; }
+
+        /// <summary>擊殺後再生的目標怪 id（monsters.csv 的 revive_into）。空＝不再生。</summary>
+        public string ReviveInto { get; }
+
         public MonsterDefinition(
             string id, int atk, int def, int hp,
             TraitSet traits, int goldDrop, int expDrop, bool isGuardian,
-            string nameZh = "", int agility = 0, string bestiaryNote = "")
+            string nameZh = "", int agility = 0, string bestiaryNote = "",
+            int traitValue = 0, string reviveInto = null)
         {
+            TraitValue = traitValue;
+            ReviveInto = string.IsNullOrWhiteSpace(reviveInto) ? null : reviveInto;
             Id = id;
             NameZh = nameZh;
             BestiaryNote = bestiaryNote;

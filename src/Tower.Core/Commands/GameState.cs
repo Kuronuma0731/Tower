@@ -38,6 +38,12 @@ namespace Tower.Core.Commands
         /// </summary>
         public readonly HashSet<string> SeenMonsters = new HashSet<string>();
 
+        /// <summary>
+        /// 擊殺後再生的結果：原 eid → 現在站在那格的怪 id（<see cref="Combat.TraitSet.ReviveAsWeaker"/>）。
+        /// 樓層資料是靜態的，所有變動一律進狀態——存檔才帶得走，回溯才還原得回去。
+        /// </summary>
+        public readonly Dictionary<string, string> RevivedMonsters = new Dictionary<string, string>();
+
         public PlayerStats CombatStats => new PlayerStats(Atk, Def);
 
         /// <summary>樓層快照用的深拷貝。</summary>
@@ -54,6 +60,7 @@ namespace Tower.Core.Commands
             };
             copy.ConsumedEids.UnionWith(ConsumedEids);
             copy.SeenMonsters.UnionWith(SeenMonsters);
+            foreach (var kv in RevivedMonsters) copy.RevivedMonsters[kv.Key] = kv.Value;
             foreach (var kv in PurchaseCounts)
                 copy.PurchaseCounts[kv.Key] = kv.Value;
             return copy;

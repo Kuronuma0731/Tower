@@ -8,9 +8,24 @@ namespace Tower.Core.Combat
     /// </summary>
     public static class DamageFormula
     {
-        /// <summary>我方單擊 = max(0, 我方攻 − 敵方防)。歸零即「打不動」。</summary>
-        public static int PlayerHit(in PlayerStats player, MonsterDefinition monster)
-            => Math.Max(0, player.Atk - monster.Def);
+        /// <summary>
+        /// 我方單擊 = max(0, 我方攻 − 敵方**有效**防禦)。歸零即「打不動」。
+        /// <paramref name="atkPenalty"/> 是本場戰鬥累積的衰弱量（見 <see cref="TraitSet.Weaken"/>）。
+        /// </summary>
+        public static int PlayerHit(in PlayerStats player, MonsterDefinition monster, int atkPenalty = 0)
+        {
+            int atk = Math.Max(1, player.Atk - atkPenalty);   // 衰弱最低壓到 1，不歸零
+            return Math.Max(0, atk - EffectiveDefense(atk, monster));
+        }
+
+        /// <summary>
+        /// 敵方有效防禦。**適應性防禦**：防禦跟著我方攻擊漲，把我方單擊壓在 trait_value 以內
+        /// ——攻擊堆過門檻之後就再也砍不快，只能拼耐久。這是唯一一種「堆攻擊無效」的牆。
+        /// </summary>
+        public static int EffectiveDefense(int playerAtk, MonsterDefinition monster)
+            => monster.Traits.HasFlag(TraitSet.AdaptiveDefense)
+                ? Math.Max(monster.Def, playerAtk - Math.Max(1, monster.TraitValue))
+                : monster.Def;
 
         /// <summary>敵方單擊 = max(0, 敵方攻 − 我方防)；魔攻無視防禦，永不歸零。</summary>
         public static int MonsterHit(in PlayerStats player, MonsterDefinition monster)
@@ -31,6 +46,14 @@ namespace Tower.Core.Combat
             => monster.Traits.HasFlag(TraitSet.Lifesteal)
                 ? DamagePerOccasion(player, monster)
                 : 0;
+
+        /// <summary>
+        /// 衰弱：每挨一次，我方有效攻擊 −trait_value（**本場戰鬥內**累積）。
+        /// 刻意不做成永久 debuff——永久版需要解除手段與一個驗證器狀態維度，會動到 D11 的封閉經濟。
+        /// 戰鬥內版本一樣達到「拖越久越砍不動」，而且完全可算。
+        /// </summary>
+        public static int WeakenPerHit(MonsterDefinition monster)
+            => monster.Traits.HasFlag(TraitSet.Weaken) ? Math.Max(1, monster.TraitValue) : 0;
 
         /// <summary>
         /// D15 迴避：命中 <paramref name="hitsNeeded"/> 次所需的**總出手數**（含落空）。

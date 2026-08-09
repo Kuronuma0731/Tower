@@ -173,6 +173,20 @@ namespace Tower.Game
             if (_pad != null) _pad.Position = PadCenter;
         }
 
+        /// <summary>
+        /// 這格現在站的是哪隻怪。擊殺後再生會讓格子換怪（<see cref="TraitSet.ReviveAsWeaker"/>），
+        /// 所以**狀態覆蓋樓層資料**——樓層是靜態的，變動一律查 GameState。
+        /// </summary>
+        private string MonsterAt(FloorEntity e)
+            => _state.RevivedMonsters.TryGetValue(e.Eid, out var replaced) ? replaced : e.Ref;
+
+        /// <summary>
+        /// 這格清空了嗎。**再生中的怪不算清空**——牠的 eid 在已消耗清單裡（第一次殺掉時加的），
+        /// 但格子上還站著較弱的那隻，得繼續擋路、繼續能打。
+        /// </summary>
+        private bool IsCleared(FloorEntity e)
+            => _state.ConsumedEids.Contains(e.Eid) && !_state.RevivedMonsters.ContainsKey(e.Eid);
+
         /// <summary>入口＝下樓梯（座標對齊規約的落點）；沒有下樓梯的層用 spawn（僅序章層）。</summary>
         private static GridPos EntryOf(FloorDefinition floor)
         {
@@ -276,7 +290,15 @@ namespace Tower.Game
 
             foreach (var e in _floor.Entities)
             {
-                string sprite = SpriteMap.For(e);
+                // 已清空的不畫。RebuildBoard（回溯／退回樓層後）會走同一條路——
+                // 少了這道過濾，撤銷一步會讓另外幾個已經吃掉的東西在畫面上復活。
+                if (IsCleared(e)) continue;
+
+                // 擊殺後再生：這格的怪已經換成較弱的同系怪（狀態覆蓋樓層資料）
+                string monsterId = MonsterAt(e);
+                string sprite = e.Type == EntityType.Monster
+                    ? SpriteMap.Monster.GetValueOrDefault(monsterId)
+                    : SpriteMap.For(e);
                 if (sprite == null) continue;
                 var node = _view.MakeSprite(sprite, LocalOf(e.Pos), 10);
                 _entityViews[e.Eid] = node;
@@ -285,13 +307,13 @@ namespace Tower.Game
                 {
                     // 踏進這一層就算「遭遇」——手冊記的是見過什麼，不是打過什麼。
                     // 知識只增不減，回溯不會讓玩家忘記（見 GameState.SeenMonsters）。
-                    _state.SeenMonsters.Add(e.Ref);
+                    _state.SeenMonsters.Add(monsterId);
 
                     // 傷害預覽常駐、掛在怪物身上（怪物消失標籤跟著走）
                     var lb = _view.MakeLabel(node, new Vector2(-24, -30), 14, HorizontalAlignment.Center, Colors.White, 60);
                     lb.Size = new Vector2(48, 18);
                     _previewLabels[e.Eid] = lb;
-                    _idle.Add((node, e.Ref, GD.Randf()));  // 相位錯開，棋盤才不會像節拍器一起跳
+                    _idle.Add((node, monsterId, GD.Randf()));  // 相位錯開，棋盤才不會像節拍器一起跳
                 }
             }
         }
@@ -392,7 +414,7 @@ namespace Tower.Game
                 if (!_floor.Grid.CanStep(from, to)) { ApplyHeroSprite(); return; }
 
                 var blocker = _floor.EntityAt(to);
-                if (blocker != null && !_state.ConsumedEids.Contains(blocker.Eid))
+                if (blocker != null && !IsCleared(blocker))
                 {
                     await Interact(blocker);
                     return;
@@ -446,7 +468,7 @@ namespace Tower.Game
                     return;
 
                 case EntityType.Monster:
-                    var m = _catalog.Monsters[e.Ref];
+                    var m = _catalog.Monsters[MonsterAt(e)];
                     var outcome = CombatResolver.ResolveCollision(_state.CombatStats, m);
                     // D13：打不過或會死 —— 那隻怪就是一堵牆，不會發生戰鬥
                     if (!outcome.Winnable) { _audio.Play(AudioBank.Blocked); _hud.Toast(_text["msg_cannot_win"]); return; }
@@ -634,7 +656,7 @@ namespace Tower.Game
                 if (!_previewLabels.TryGetValue(e.Eid, out var label)) continue;
                 if (_state.ConsumedEids.Contains(e.Eid)) continue;
 
-                var o = CombatResolver.ResolveCollision(_state.CombatStats, _catalog.Monsters[e.Ref]);
+                var o = CombatResolver.ResolveCollision(_state.CombatStats, _catalog.Monsters[MonsterAt(e)]);
                 bool blocked = !o.Winnable || o.ExpectedLoss >= _state.Hp;
                 label.Text = o.Winnable ? $"-{o.ExpectedLoss}" : "✖";
                 label.AddThemeColorOverride("font_color",

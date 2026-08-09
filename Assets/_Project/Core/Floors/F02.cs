@@ -25,7 +25,7 @@ namespace Tower.Core.Floors
 
         public static readonly string[] MonsterRefs =
         {
-            "slime_green", "slime_red", "bat_cave", "skel_gray",
+            "slime_green", "slime_red", "bat_cave",
         };
 
         public static readonly string[] ItemRefs =
@@ -36,21 +36,25 @@ namespace Tower.Core.Floors
         public static FloorDefinition Build()
         {
             // 對稱雙翼：中央通道貫穿南北，左右各一個由怪看守的寶石室。
-            // 與 F01 的「開放大廳＋壁龕」不同語法，讓兩層一眼分得出來。
+            //
+            // ⚠ 這層的第一版有致命佈局錯誤：x1/x11 是從 y1 直通 y5 的邊緣走廊，
+            // 玩家沿邊走就繞過了守衛，寶石等於白送（無頭遊玩抓到，驗證器抓不到——
+            // 它只問可不可解，而繞道「可解且更好解」）。現在邊緣走廊已切斷，
+            // 寶石室只剩守衛那一個入口。
             var rows = new[]
             {
                 "WWWWWWWWWWWWW", // y0
-                "W.....W.....W", // y1   下樓梯 (6,1)＝入口
-                "W.WWW.W.WWW.W", // y2
-                "W.W.......W.W", // y3   左寶石室門 (3,3)／右寶石室門 (9,3)
-                "W.W.WWWWW.W.W", // y4
-                "W...W...W...W", // y5   左室 (1..3,5)／右室 (9..11,5)
-                "WWW.W...W.WWW", // y6
-                "W.......W...W", // y7
-                "W.WWWWW.W.W.W", // y8
-                "W.W...W...W.W", // y9   黃鑰匙 (3,9)
-                "W.W.W.WWW.W.W", // y10
-                "W...W.......W", // y11  上樓梯 (6,11)
+                "W...........W", // y1   下樓梯 (6,1)＝入口，橫向頂廊
+                "WWWWW.W.WWWWW", // y2   只有 x5/x7 能往下——切斷邊緣走廊
+                "W...........W", // y3
+                "WWWWW.W.WWWWW", // y4   同上，中央雙井貫穿
+                "W...W.W.W...W", // y5   左寶石室 (1..3)／右寶石室 (9..11)，門在 (3,5)/(9,5)
+                "WWW.W...W.WWW", // y6   x3/x9 是通往兩翼的垂直井
+                "W...W...W...W", // y7   左鑰匙龕 (1,7)／右鑰匙龕 (11,7)
+                "WWW.W...W.WWW", // y8
+                "W...........W", // y9   主橫廊：左血瓶龕 (1,9)／右血瓶龕 (11,9)
+                "WWW.WWWWW.WWW", // y10
+                "W...........W", // y11  上樓梯 (6,11)
                 "WWWWWWWWWWWWW", // y12
             };
 
@@ -59,26 +63,29 @@ namespace Tower.Core.Floors
                 new FloorEntity("F02_sd1", EntityType.Stairs, StairsDownPos, stairs: StairsDirection.Down),
                 new FloorEntity("F02_su1", EntityType.Stairs, StairsUpPos, stairs: StairsDirection.Up),
 
-                // 兩扇門、兩把鑰匙——這層不搞二選一，改教先後順序
-                new FloorEntity("F02_d01", EntityType.Door, new GridPos(3, 3), doorTier: KeyTier.Yellow),
-                new FloorEntity("F02_d02", EntityType.Door, new GridPos(9, 3), doorTier: KeyTier.Yellow),
-                new FloorEntity("F02_i01", EntityType.Item, new GridPos(3, 9), @ref: "key_yellow"),
-                new FloorEntity("F02_i02", EntityType.Item, new GridPos(9, 9), @ref: "key_yellow"),
+                // 寶石室的門——鑰匙來自下方鑰匙龕，兩者不循環（門在 y5、鑰匙在 y7）
+                new FloorEntity("F02_d01", EntityType.Door, new GridPos(3, 5), doorTier: KeyTier.Yellow),
+                new FloorEntity("F02_d02", EntityType.Door, new GridPos(9, 5), doorTier: KeyTier.Yellow),
 
-                // 左翼：骷髏守攻擊寶石——貴，但買的是往後每一場的折扣
-                new FloorEntity("F02_m01", EntityType.Monster, new GridPos(2, 5), @ref: "skel_gray"),
+                // 兩間寶石室的守衛代價要對得起獎勵：+2 攻在 2F 大約值 150–250 血
+                // （往後每場戰鬥省下的量）。骷髏損 540 純屬虧本，遊玩器算出來就不打——
+                // 換成蝙蝠(132)與黑史萊姆前一階的紅史萊姆(80)，兩筆都划算但不是白送。
+                new FloorEntity("F02_m01", EntityType.Monster, new GridPos(2, 5), @ref: "bat_cave"),
                 new FloorEntity("F02_i03", EntityType.Item, new GridPos(1, 5), @ref: "gem_atk"),
 
-                // 右翼：蝙蝠守防禦寶石——便宜
-                new FloorEntity("F02_m02", EntityType.Monster, new GridPos(10, 5), @ref: "bat_cave"),
+                new FloorEntity("F02_m02", EntityType.Monster, new GridPos(10, 5), @ref: "slime_red"),
                 new FloorEntity("F02_i04", EntityType.Item, new GridPos(11, 5), @ref: "gem_def"),
 
-                // 主路上的可繞過怪
-                new FloorEntity("F02_m03", EntityType.Monster, new GridPos(6, 7), @ref: "slime_red"),
-                new FloorEntity("F02_m04", EntityType.Monster, new GridPos(4, 9), @ref: "slime_green"),
+                // 鑰匙龕：不打就開不了寶石室的門
+                new FloorEntity("F02_m03", EntityType.Monster, new GridPos(2, 7), @ref: "slime_red"),
+                new FloorEntity("F02_i01", EntityType.Item, new GridPos(1, 7), @ref: "key_yellow"),
+                new FloorEntity("F02_m04", EntityType.Monster, new GridPos(10, 7), @ref: "slime_green"),
+                new FloorEntity("F02_i02", EntityType.Item, new GridPos(11, 7), @ref: "key_yellow"),
 
-                // 血瓶：走到底的探索獎勵
+                // 血瓶龕：原版的規矩——所有值錢的東西都要用血換
+                new FloorEntity("F02_m05", EntityType.Monster, new GridPos(2, 9), @ref: "slime_green"),
                 new FloorEntity("F02_i05", EntityType.Item, new GridPos(1, 9), @ref: "potion_s"),
+                new FloorEntity("F02_m06", EntityType.Monster, new GridPos(10, 9), @ref: "slime_red"),
                 new FloorEntity("F02_i06", EntityType.Item, new GridPos(11, 9), @ref: "potion_s"),
             };
 

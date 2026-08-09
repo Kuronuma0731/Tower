@@ -50,6 +50,11 @@ namespace Tower.Verify
             FloorPairingChecks();
 
             Console.WriteLine($"\n{_passed} passed, {_failed} failed");
+
+            // 通過後跑一趟無頭遊玩，把「玩起來像什麼」印出來
+            if (_failed == 0 && Environment.GetCommandLineArgs().Contains("--play"))
+                Playthrough.Run(catalog);
+
             return _failed == 0 ? 0 : 1;
         }
 
@@ -226,9 +231,10 @@ namespace Tower.Verify
             var start = new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv
             var result = new FloorSolver(F01.Build(), catalog.Monsters, catalog.Items)
                 .Solve(start, F01.SpawnPos, F01.StairsUpPos);
-            // 1000 − 132（蝙蝠）+ 600（三瓶各 200）= 1468。右壁龕那瓶被黑史萊姆擋住拿不到。
-            Check($"可解 {result.Status} exitHp={result.BestExitHp} nodes={result.NodesExplored}（期望 1468）",
-                result.Status == SolverStatus.Solvable && result.BestExitHp == 1468);
+            // 三瓶血都要用血換：左壁龕(蝙蝠 -132)、左上角(史萊姆 -32)、右上角(紅史萊姆 -80)。
+            // 1000 + 600 − 244 = 1356。右壁龕那瓶被黑史萊姆擋住，這層拿不到。
+            Check($"可解 {result.Status} exitHp={result.BestExitHp} nodes={result.NodesExplored}（期望 1356）",
+                result.Status == SolverStatus.Solvable && result.BestExitHp == 1356);
 
             var black = catalog.Monsters["slime_black"];
             var now = CombatResolver.ResolveCollision(new PlayerStats(10, 10), black);
@@ -285,11 +291,59 @@ namespace Tower.Verify
                 extraM.Length == 0 && missingM.Length == 0 && extraI.Length == 0 && missingI.Length == 0);
         }
 
+        /// <summary>
+        /// 守衛有效性：一隻怪若「宣稱」守著某個道具，那在殺掉牠之前該道具就必須拿不到。
+        ///
+        /// 這是驗證器抓不到、只有實際遊玩才會現形的一類錯——F02 第一版的邊緣走廊讓玩家
+        /// 繞過守衛白拿寶石，可解性檢查全綠（繞道「可解且更好解」）。這條檢查補上那個盲點：
+        /// **入場即可達的道具數**若等於全部道具，代表這層沒有任何東西是要用血換的。
+        /// </summary>
+        private static void GuardEffectiveness(string floorId, FloorDefinition floor, GameState entry, GridPos entryPos)
+        {
+            var free = FreelyReachableItems(floor, entry, entryPos);
+            int total = floor.Entities.Count(e => e.Type == EntityType.Item);
+            int guarded = total - free.Count;
+
+            Check($"{floorId} 有 {guarded}/{total} 個道具需要付出代價才拿得到" +
+                  (free.Count > 0 ? $"（免費：{string.Join(",", free)}）" : ""),
+                guarded > 0 && guarded >= total / 2);
+        }
+
+        /// <summary>純地形＋未消耗實體阻擋下，從入場點直接走得到的道具。</summary>
+        private static List<string> FreelyReachableItems(FloorDefinition floor, GameState state, GridPos from)
+        {
+            var seen = new HashSet<GridPos> { from };
+            var q = new Queue<GridPos>();
+            q.Enqueue(from);
+            while (q.Count > 0)
+            {
+                var p = q.Dequeue();
+                foreach (var n in new[]
+                {
+                    new GridPos(p.X + 1, p.Y), new GridPos(p.X - 1, p.Y),
+                    new GridPos(p.X, p.Y + 1), new GridPos(p.X, p.Y - 1),
+                })
+                {
+                    if (seen.Contains(n) || !floor.Grid.CanStep(p, n)) continue;
+                    var e = floor.EntityAt(n);
+                    if (e != null && (e.Type == EntityType.Monster || e.Type == EntityType.Door || e.Type == EntityType.Npc))
+                        continue;
+                    seen.Add(n);
+                    q.Enqueue(n);
+                }
+            }
+            return floor.Entities
+                .Where(e => e.Type == EntityType.Item && seen.Contains(e.Pos))
+                .Select(e => e.Ref).ToList();
+        }
+
         private static void FloorPairingChecks()
         {
             Console.WriteLine("== 跨層規約 ==");
             RefsMatchPlacement("F01", F01.Build(), F01.MonsterRefs, F01.ItemRefs);
             RefsMatchPlacement("F02", F02.Build(), F02.MonsterRefs, F02.ItemRefs);
+            GuardEffectiveness("F01", F01.Build(), new GameState { Atk = 10, Def = 10, Hp = 1000 }, F01.SpawnPos);
+            GuardEffectiveness("F02", F02.Build(), new GameState { Atk = 10, Def = 10, Hp = 1400 }, F02.StairsDownPos);
             // floor-authoring.md：F(n) 的上樓梯與 F(n+1) 的下樓梯同座標
             Check($"F01 上樓梯 {F01.StairsUpPos} == F02 下樓梯 {F02.StairsDownPos}",
                 F01.StairsUpPos == F02.StairsDownPos);

@@ -29,6 +29,11 @@ namespace Tower.Core.Floors
 
             foreach (var e in entities)
             {
+                if (!grid.InBounds(e.Pos))
+                    throw new ArgumentException($"{id}: 實體 {e.Eid} 在界外 {e.Pos}");
+                // 擺在牆上的實體永遠碰不到——曾經發生過（守衛被擺進牆裡，佈局看起來卻正常）
+                if (grid[e.Pos] == TerrainType.Wall)
+                    throw new ArgumentException($"{id}: 實體 {e.Eid} 被擺在牆上 {e.Pos}");
                 if (_byPos.ContainsKey(e.Pos))
                     throw new ArgumentException($"{id}: 兩個實體佔據同一格 {e.Pos}（{_byPos[e.Pos].Eid} / {e.Eid}）");
                 _byPos[e.Pos] = e;

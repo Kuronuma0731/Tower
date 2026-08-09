@@ -30,10 +30,10 @@ namespace Tower.Core.Floors
             var rows = new[]
             {
                 "WWWWWWWWWWWWW", // y0
-                "W....W......W", // y1   頂廊：上樓梯 (10,1) 右上角、攻擊寶石 (1,1) 左上角
+                "W.W..W......W", // y1   頂廊：上樓梯 (10,1)；(2,1) 封牆讓左上角成死路
                 "W.WW.W.WWW..W", // y2
-                "W.WW.....WW.W", // y3   血瓶 (11,3) 右側走廊
-                "W......W....W", // y4   骷髏 (10,4) 貴但可選
+                "W.WW.....WW.W", // y3   右上角血瓶 (11,3)
+                "W......W...WW", // y4   (11,4) 封牆讓右上角成死路
                 "W.WWW...WW..W", // y5
                 "WWWWWW.WWWWWW", // y6   主門 (6,6)——整道橫牆的唯一開口
                 "W...........W", // y7   下層走廊
@@ -50,8 +50,10 @@ namespace Tower.Core.Floors
                 new FloorEntity("F01_n01", EntityType.Npc, new GridPos(5, 11), dialogueId: "dlg_f01_intro"),
                 new FloorEntity("F01_s01", EntityType.Stairs, StairsUpPos, stairs: StairsDirection.Up),
 
-                // 三扇門、兩把鑰匙——主門必開，口袋只能選一個
-                new FloorEntity("F01_d01", EntityType.Door, new GridPos(6, 6), doorTier: KeyTier.Yellow),
+                // 主門不上鎖——它是唯一通往上層的路，鎖住它等於讓玩家有機會把自己關死
+                // （無頭遊玩實證：貪心玩家把兩把鑰匙都花在壁龕上，主門就開不了了）。
+                // 三扇門改成「兩扇壁龕門、兩把鑰匙」：兩邊都開得了，但右邊那間的黑史萊姆
+                // 現在打不過——鑰匙不會白費，只是那瓶血得之後回來拿。
                 new FloorEntity("F01_d02", EntityType.Door, new GridPos(2, 9), doorTier: KeyTier.Yellow),
                 new FloorEntity("F01_d03", EntityType.Door, new GridPos(10, 9), doorTier: KeyTier.Yellow),
 
@@ -59,18 +61,18 @@ namespace Tower.Core.Floors
                 new FloorEntity("F01_i02", EntityType.Item, new GridPos(9, 11), @ref: "key_yellow"),
                 new FloorEntity("F01_i03", EntityType.Item, new GridPos(1, 11), @ref: "potion_s"),
                 new FloorEntity("F01_i04", EntityType.Item, new GridPos(11, 11), @ref: "potion_s"),
-                // 四角探索獎勵——原版的密度來自這種「走到底就有東西」。
-                // 這裡刻意**不放寶石**：寶石是 2F 的機制（mechanics.md 引入表），
-                // 1F 已經要教門/鑰匙/怪物/血瓶/樓梯/預覽/D13 牆，再加一種就超載了。
+                // 角落獎勵**由怪看守**——原版的規矩：所有值錢的東西都要用血換。
+                // 主路仍然零強制戰鬥（可以直接上樓），但不打就什麼也拿不到。
+                // 這裡刻意不放寶石：寶石是 2F 的機制（mechanics.md 引入表）。
+                new FloorEntity("F01_m02", EntityType.Monster, new GridPos(1, 2), @ref: "slime_green"),
                 new FloorEntity("F01_i05", EntityType.Item, new GridPos(1, 1), @ref: "potion_s"),
+                new FloorEntity("F01_m05", EntityType.Monster, new GridPos(11, 2), @ref: "slime_red"),
                 new FloorEntity("F01_i06", EntityType.Item, new GridPos(11, 3), @ref: "potion_s"),
 
-                // 主路上的怪都可繞過——第一層不強迫戰鬥
+                // 上層大廳的可繞過怪：純粹的金幣/經驗來源
                 new FloorEntity("F01_m01", EntityType.Monster, new GridPos(6, 9), @ref: "slime_green"),
-                new FloorEntity("F01_m02", EntityType.Monster, new GridPos(4, 3), @ref: "slime_green"),
-                new FloorEntity("F01_m05", EntityType.Monster, new GridPos(8, 3), @ref: "slime_red"),
                 // 骷髏：打得動（防 0）但一刀 60——「打得動不代表該打」的活教材
-                new FloorEntity("F01_m06", EntityType.Monster, new GridPos(10, 4), @ref: "skel_gray"),
+                new FloorEntity("F01_m06", EntityType.Monster, new GridPos(8, 3), @ref: "skel_gray"),
                 // 左壁龕：好交易（虧 132 血換 200 血瓶）
                 new FloorEntity("F01_m03", EntityType.Monster, new GridPos(1, 10), @ref: "bat_cave"),
                 // 右壁龕：預覽顯示紅色致死數字，D13 判定為牆——開這扇門等於白費一把鑰匙。

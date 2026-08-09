@@ -24,6 +24,7 @@ namespace Tower.Game
 
         private ViewFactory _view;
         private HudView _hud;
+        private BattleView _battleView;
         private TextBank _text;
         private Catalog _catalog;
         private FloorRegistry _floors;
@@ -41,6 +42,7 @@ namespace Tower.Game
         private readonly Dictionary<string, Label> _previewLabels = new Dictionary<string, Label>();
         private readonly List<(Sprite2D node, string monsterId, float phase)> _idle = new List<(Sprite2D, string, float)>();
         private Sprite2D _hero;
+        private TouchPad _pad;
         private int _heroDir, _heroStep;
 
         private bool _busy;
@@ -57,9 +59,14 @@ namespace Tower.Game
 
             _view = new ViewFactory();
             _hud = new HudView(_view, _text, this);
+            _battleView = new BattleView(this, _view, _hud, _text);
 
             // 虛擬方向鍵（D9）：左下角，橫向雙手持握時落在左拇指下
-            TouchPad.Create(this, new Vector2(150, 580)).Stepped += Step;
+            _pad = TouchPad.Create(this, PadCenter);
+            _pad.Stepped += Step;
+
+            // 視窗/螢幕尺寸變動時，棋盤與方向鍵都要重新定位（旋轉、多視窗、不同機型）
+            GetViewport().SizeChanged += Relayout;
 
             var loaded = SaveFile.Read();
             if (loaded != null && _floors.Has(loaded.State.CurrentFloor))
@@ -94,6 +101,16 @@ namespace Tower.Game
                     Godot.FileAccess.GetFileAsString($"res://data/floors/{file}")));
             }
             return new FloorRegistry(floors);
+        }
+
+        /// <summary>方向鍵中心：貼左下，離邊留出安全距離（瀏海／圓角／手勢列）。</summary>
+        private Vector2 PadCenter => new Vector2(150, GetViewportRect().Size.Y - 140);
+
+        /// <summary>螢幕尺寸變了就重新擺位——HUD 由錨點自理，這裡處理非 Control 的部分。</summary>
+        private void Relayout()
+        {
+            if (_boardRoot != null) _boardRoot.Position = BoardOrigin;
+            if (_pad != null) _pad.Position = PadCenter;
         }
 
         /// <summary>入口＝下樓梯（座標對齊規約的落點）；沒有下樓梯的層用 spawn（僅序章層）。</summary>
@@ -150,7 +167,23 @@ namespace Tower.Game
             => new Vector2(p.X * Cell + Cell / 2f, p.Y * Cell + Cell / 2f);
 
         private const float BoardScale = 1.5f;
-        private static readonly Vector2 BoardOrigin = new Vector2(468, 44);
+        private const float BoardPixels = FloorGrid.Size * Cell * BoardScale;   // 13 × 32 × 1.5 = 624
+        private const float HudColumnWidth = 272f;                              // 左欄 16 + 240 + 16
+
+        /// <summary>
+        /// 棋盤置中於「左欄右側」的剩餘空間，依實際視窗寬度算——**不寫死**。
+        /// stretch 是 keep_height：邏輯高固定 720，寬度隨螢幕比例變（21:9 手機約 1750，
+        /// 平板 4:3 約 960）。寫死 468 只在 1280 寬時剛好。
+        /// </summary>
+        private Vector2 BoardOrigin
+        {
+            get
+            {
+                float viewW = GetViewportRect().Size.X;
+                float free = viewW - HudColumnWidth;
+                return new Vector2(HudColumnWidth + Mathf.Max(0, (free - BoardPixels) / 2f), 44);
+            }
+        }
 
         private void BuildBoard()
         {
@@ -237,23 +270,38 @@ namespace Tower.Game
             TryStep(dx, dy, dir);
         }
 
+        /// <summary>
+        /// 一步的完整流程。
+        ///
+        /// 這是唯一的 `async void`——事件處理器沒有東西能 await 回傳值，只能是它。
+        /// 但 `async void` 的例外會直接吞掉（Godot 不會報，玩家看到的是遊戲莫名卡住），
+        /// 所以整段包 try/catch 把錯誤送進 Godot 的錯誤流，並解開 _busy 免得永久凍結。
+        /// </summary>
         private async void TryStep(int dx, int dy, int dir)
         {
-            if (dir != _heroDir) { _heroDir = dir; _heroStep = 0; }
-
-            var from = _state.Position;
-            var to = new GridPos(from.X + dx, from.Y + dy);
-            if (!_floor.Grid.CanStep(from, to)) { ApplyHeroSprite(); return; }
-
-            var blocker = _floor.EntityAt(to);
-            if (blocker != null && !_state.ConsumedEids.Contains(blocker.Eid))
+            try
             {
-                await Interact(blocker);
-                return;
-            }
+                if (dir != _heroDir) { _heroDir = dir; _heroStep = 0; }
 
-            await WalkStep(from, to);
-            AfterArrive(to);
+                var from = _state.Position;
+                var to = new GridPos(from.X + dx, from.Y + dy);
+                if (!_floor.Grid.CanStep(from, to)) { ApplyHeroSprite(); return; }
+
+                var blocker = _floor.EntityAt(to);
+                if (blocker != null && !_state.ConsumedEids.Contains(blocker.Eid))
+                {
+                    await Interact(blocker);
+                    return;
+                }
+
+                await WalkStep(from, to);
+                AfterArrive(to);
+            }
+            catch (System.Exception e)
+            {
+                GD.PushError($"[Tower] 走一步時出錯：{e}");
+                _busy = false;      // 不解開的話輸入會永遠鎖住
+            }
         }
 
         private async Task Interact(FloorEntity e)
@@ -277,7 +325,13 @@ namespace Tower.Game
                     // D13：打不過或會死 —— 那隻怪就是一堵牆，不會發生戰鬥
                     if (!outcome.Winnable) { _hud.Toast(_text["msg_cannot_win"]); return; }
                     if (outcome.ExpectedLoss >= _state.Hp) { _hud.Toast(_text["msg_lethal_blocked"]); return; }
-                    await BattleSequence(e, m, outcome);
+                    _busy = true;
+                    await _battleView.Play(m, outcome, _state, () =>
+                    {
+                        Apply(new CollisionBattleCommand(e.Eid, outcome, m));
+                        _entityViews[e.Eid].QueueFree();
+                    });
+                    _busy = false;
                     return;
             }
         }
@@ -375,114 +429,6 @@ namespace Tower.Game
             BuildHero();
             RefreshHud();
             RefreshPreviews();
-        }
-
-        // ---- 演出 ----
-
-        /// <summary>
-        /// 碰撞戰演出——**照原版逐回合演**（6219_newMT.swf 錄影逐格比對）：
-        /// 開 VS 面板 → 每回合雙方各挨一下、體力數字一格一格掉、受擊處放黃色爆閃
-        /// 並跳紅色傷害數字向下飄散 → 結算列。
-        ///
-        /// D1 的一次結算是**規則**不是表現：算術仍一次算完（預覽與實戰同一輸出，
-        /// 永遠不會騙人），這裡只是把算好的結果攤開來演。回合數壓在 12 次以內。
-        /// </summary>
-        private async Task BattleSequence(FloorEntity entity, MonsterDefinition monster, CollisionOutcome outcome)
-        {
-            _busy = true;
-
-            int playerHit = Mathf.Max(0, _state.Atk - monster.Def);
-            int monsterHit = Mathf.Max(0, monster.Atk - _state.Def);
-            int hpBefore = _state.Hp;
-
-            _hud.OpenBattle(monster, monster.Hp, _state);
-            await ToSignal(GetTree().CreateTimer(0.18), SceneTreeTimer.SignalName.Timeout);
-
-            int shown = Mathf.Clamp(outcome.Rounds, 1, 12);
-            double beat = outcome.Rounds > 12 ? 0.16 : 0.26;
-            int monsterHp = monster.Hp;
-            int playerHp = hpBefore;
-
-            // D15：落空次數已算死，這裡只決定「哪幾下」演成閃避
-            var missAt = new HashSet<int>();
-            int missShown = outcome.Rounds > 0
-                ? Mathf.Min(shown - 1, Mathf.RoundToInt(shown * (float)outcome.Misses / outcome.Rounds))
-                : 0;
-            while (missAt.Count < missShown) missAt.Add((int)(GD.Randi() % (uint)shown));
-
-            for (int i = 0; i < shown; i++)
-            {
-                bool last = i == shown - 1;
-
-                if (missAt.Contains(i))
-                {
-                    FloatDamage(_hud.BattleMonsterAnchor, _text["msg_miss"], new Color(0.95f, 0.95f, 1f));
-                    await ToSignal(GetTree().CreateTimer(beat), SceneTreeTimer.SignalName.Timeout);
-                    continue;
-                }
-
-                // 我方先手：怪先挨
-                monsterHp = last ? 0 : Mathf.Max(0, monsterHp - Mathf.CeilToInt(monster.Hp / (float)shown));
-                _ = Burst(_hud.BattleMonsterAnchor);
-                FloatDamage(_hud.BattleMonsterAnchor, playerHit.ToString(), new Color(1f, 0.25f, 0.2f));
-                _hud.SetBattleHp(monsterHp, playerHp, _state);
-                await ToSignal(GetTree().CreateTimer(beat * 0.45), SceneTreeTimer.SignalName.Timeout);
-
-                // 怪還手——最後一回合牠已經倒下，不還手
-                if (!last && monsterHit > 0)
-                {
-                    playerHp = Mathf.Max(hpBefore - outcome.ExpectedLoss,
-                                         playerHp - Mathf.CeilToInt(outcome.ExpectedLoss / (float)(shown - 1)));
-                    _ = Burst(_hud.BattleHeroAnchor);
-                    FloatDamage(_hud.BattleHeroAnchor, monsterHit.ToString(), new Color(1f, 0.25f, 0.2f));
-                    _hud.SetBattleHp(monsterHp, playerHp, _state);
-                }
-                await ToSignal(GetTree().CreateTimer(beat * 0.55), SceneTreeTimer.SignalName.Timeout);
-            }
-
-            Apply(new CollisionBattleCommand(entity.Eid, outcome, monster));
-            _entityViews[entity.Eid].QueueFree();
-            _hud.CloseBattleRow(monster, outcome);
-
-            await ToSignal(GetTree().CreateTimer(1.5), SceneTreeTimer.SignalName.Timeout);
-            _hud.HideBattle();
-            _busy = false;
-        }
-
-        /// <summary>命中爆閃：8 幀黃星疊在受擊者身上（原版的命中表現）。</summary>
-        private async Task Burst(Vector2 at)
-        {
-            var s = new Sprite2D
-            {
-                Texture = _view.GetTexture(SpriteMap.Burst(0)),
-                Position = at, Scale = new Vector2(1.45f, 1.45f), ZIndex = 130,
-                TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
-            };
-            _hud.BattleLayer.AddChild(s);
-
-            for (int f = 0; f < SpriteMap.BurstFrames; f++)
-            {
-                s.Texture = _view.GetTexture(SpriteMap.Burst(f));
-                await ToSignal(GetTree().CreateTimer(0.035), SceneTreeTimer.SignalName.Timeout);
-            }
-            s.QueueFree();
-        }
-
-        /// <summary>
-        /// 傷害數字：紅字**向下**飄再淡出。
-        /// 向下是原版的做法（一般遊戲往上飄）——照抄，懷舊感就在這種小地方。
-        /// </summary>
-        private void FloatDamage(Vector2 at, string text, Color color)
-        {
-            var lb = _view.MakeLabel(_hud.BattleLayer, at + new Vector2(-52, 22), 24,
-                HorizontalAlignment.Center, color, 135);
-            lb.Size = new Vector2(60, 30);
-            lb.Text = text;
-
-            var tw = CreateTween().SetParallel();
-            tw.TweenProperty(lb, "position", lb.Position + new Vector2(0, 26), 0.55);
-            tw.TweenProperty(lb, "modulate:a", 0.0f, 0.55);
-            tw.Chain().TweenCallback(Callable.From(lb.QueueFree));
         }
 
         /// <summary>走一格：0.1 秒滑過去，中途換一次走路幀。</summary>

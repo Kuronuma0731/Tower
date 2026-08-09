@@ -81,6 +81,7 @@ namespace Tower.Game
                 ZIndex = z,
                 HorizontalAlignment = align,
                 VerticalAlignment = VerticalAlignment.Center,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
             };
             l.AddThemeColorOverride("font_color", color);
             l.AddThemeFontSizeOverride("font_size", size);
@@ -102,5 +103,55 @@ namespace Tower.Game
             parent.AddChild(r);
             return r;
         }
+
+        /// <summary>
+        /// 一個貼著畫面某一邊的容器，子節點用**相對於它**的座標擺放。
+        ///
+        /// 為什麼需要：手機比例從 16:9 到 21:9，平板是 4:3。stretch 設 keep_height 之後
+        /// 邏輯高度固定 720、寬度隨比例變寬——把面板釘死在絕對座標，寬螢幕上就會離邊、
+        /// 或在窄螢幕上被裁掉。錨到邊之後，左欄永遠貼左、對話框永遠置中。
+        /// </summary>
+        /// <summary>錨定位置：0 = 貼左/上，0.5 = 置中，1 = 貼右/下。</summary>
+        public enum Side { Start, Middle, End }
+
+        public static Control Anchored(Node parent, Side hx, Side hy, Vector2 inset, Vector2 size)
+        {
+            var c = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+            parent.AddChild(c);
+
+            // **直接設錨點與四邊偏移**，不走 SetAnchorsAndOffsetsPreset：
+            // 那個 API 會連偏移一起改寫，之後再設 Position/Size 會互相打架
+            // （實測結果是置中的橫幅被丟到左上角）。
+            float ax = Frac(hx), ay = Frac(hy);
+            c.AnchorLeft = ax; c.AnchorRight = ax;
+            c.AnchorTop = ay; c.AnchorBottom = ay;
+
+            // inset 一律解讀成「往內縮」：貼右/下時方向相反，置中時 inset 是微調
+            float left = hx switch
+            {
+                Side.Start => inset.X,
+                Side.Middle => -size.X / 2f + inset.X,
+                _ => -size.X - inset.X,
+            };
+            float top = hy switch
+            {
+                Side.Start => inset.Y,
+                Side.Middle => -size.Y / 2f + inset.Y,
+                _ => -size.Y - inset.Y,
+            };
+
+            c.OffsetLeft = left;
+            c.OffsetTop = top;
+            c.OffsetRight = left + size.X;
+            c.OffsetBottom = top + size.Y;
+            return c;
+        }
+
+        private static float Frac(Side s) => s switch
+        {
+            Side.Start => 0f,
+            Side.Middle => 0.5f,
+            _ => 1f,
+        };
     }
 }

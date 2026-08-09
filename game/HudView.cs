@@ -14,6 +14,12 @@ namespace Tower.Game
     {
         private const int StatRows = 5; // 生命/攻擊/防禦/金幣/經驗
 
+        /// <summary>
+        /// 居中元素的水平修正：棋盤是「左欄右側空間」的中心，不是螢幕中心。
+        /// 橫幅與對話框跟著移半個左欄寬，才會對齊棋盤——否則在 21:9 上看起來歪一邊。
+        /// </summary>
+        private const float BoardCenterShift = 136f;   // = 左欄寬 272 的一半
+
         private readonly ViewFactory _view;
         private readonly TextBank _text;
         private readonly CanvasLayer _layer;
@@ -33,9 +39,13 @@ namespace Tower.Game
 
         private double _toastUntil;
 
-        /// <summary>戰鬥面板上兩位對手的圖示座標，供演出層放爆閃與傷害數字。</summary>
-        public Vector2 BattleMonsterAnchor { get; private set; }
-        public Vector2 BattleHeroAnchor { get; private set; }
+        /// <summary>
+        /// 戰鬥面板上兩位對手的圖示座標，供演出層放爆閃與傷害數字。
+        /// 讀圖示節點的**實際位置**而不是寫死常數——面板現在是錨定的，
+        /// 螢幕比例一變位置就跟著動，寫死的座標會立刻對不上。
+        /// </summary>
+        public Vector2 BattleMonsterAnchor => _battleMonIcon.Position;
+        public Vector2 BattleHeroAnchor => _battleHeroIcon.Position;
         public Node BattleLayer => _battle;
 
         public HudView(ViewFactory view, TextBank text, Node root)
@@ -49,9 +59,13 @@ namespace Tower.Game
 
         private void Build()
         {
-            // 樓層橫幅（棋盤正上方，經典魔塔的招牌位置）
-            _view.MakePanel(_layer, new Vector2(470, 8), new Vector2(340, 40), 0.9f);
-            _floorBanner = _view.MakeLabel(_layer, new Vector2(470, 8), 22, HorizontalAlignment.Center, Colors.White);
+            // 每一塊都錨到自己該貼的邊，子節點座標一律相對於容器。
+            // 這樣 16:9 / 19.5:9 / 21:9 / 平板 4:3 都不會離邊或被裁——
+            // stretch 是 keep_height，邏輯高固定 720、寬隨比例變。
+            var banner = ViewFactory.Anchored(_layer, ViewFactory.Side.Middle, ViewFactory.Side.Start,
+                new Vector2(BoardCenterShift, 8), new Vector2(340, 40));
+            _view.MakePanel(banner, Vector2.Zero, new Vector2(340, 40), 0.9f);
+            _floorBanner = _view.MakeLabel(banner, Vector2.Zero, 22, HorizontalAlignment.Center, Colors.White);
             _floorBanner.Size = new Vector2(340, 40);
 
             BuildCharacterPanel();
@@ -59,7 +73,9 @@ namespace Tower.Game
             BuildBattlePanel();
             BuildDialogue();
 
-            _toast = _view.MakeLabel(_layer, new Vector2(400, 120), 22, HorizontalAlignment.Center, Colors.White);
+            var toastBox = ViewFactory.Anchored(_layer, ViewFactory.Side.Middle, ViewFactory.Side.Start,
+                new Vector2(BoardCenterShift, 116), new Vector2(480, 34));
+            _toast = _view.MakeLabel(toastBox, Vector2.Zero, 22, HorizontalAlignment.Center, Colors.White);
             _toast.Size = new Vector2(480, 34);
             _toast.Visible = false;
         }
@@ -70,19 +86,21 @@ namespace Tower.Game
         /// </summary>
         private void BuildCharacterPanel()
         {
-            _view.MakePanel(_layer, new Vector2(16, 60), new Vector2(240, 250), 0.84f);
+            var box = ViewFactory.Anchored(_layer, ViewFactory.Side.Start, ViewFactory.Side.Start,
+                new Vector2(16, 60), new Vector2(240, 250));
+            _view.MakePanel(box, Vector2.Zero, new Vector2(240, 250), 0.84f);
 
             _portrait = new Sprite2D
             {
                 Texture = _view.GetTexture(SpriteMap.Hero(SpriteMap.HeroDirDown, 0)),
-                Position = new Vector2(64, 108),
+                Position = new Vector2(48, 48),
                 Scale = new Vector2(2, 2),
                 ZIndex = 95,
                 TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
             };
-            _layer.AddChild(_portrait);
+            box.AddChild(_portrait);
 
-            var name = _view.MakeLabel(_layer, new Vector2(100, 92), 20, HorizontalAlignment.Left,
+            var name = _view.MakeLabel(box, new Vector2(84, 32), 20, HorizontalAlignment.Left,
                 new Color(1f, 0.85f, 0.4f));
             name.Text = _text["lbl_hero"];
 
@@ -99,22 +117,25 @@ namespace Tower.Game
 
             for (int i = 0; i < StatRows; i++)
             {
-                float y = 152 + i * 30;
+                float y = 92 + i * 30;
                 if (icons[i] != null)
-                    _view.MakeSprite(icons[i], new Vector2(40, y + 10), 95, _layer);
+                    _view.MakeSprite(icons[i], new Vector2(24, y + 10), 95, box);
 
-                var lb = _view.MakeLabel(_layer, new Vector2(60, y), 18, HorizontalAlignment.Left,
+                var lb = _view.MakeLabel(box, new Vector2(44, y), 18, HorizontalAlignment.Left,
                     new Color(0.85f, 0.85f, 0.9f));
                 lb.Text = labels[i];
 
-                _statValues[i] = _view.MakeLabel(_layer, new Vector2(120, y), 20, HorizontalAlignment.Right, colors[i]);
+                _statValues[i] = _view.MakeLabel(box, new Vector2(104, y), 20, HorizontalAlignment.Right, colors[i]);
                 _statValues[i].Size = new Vector2(120, 26);
             }
         }
 
         private void BuildKeyPanel()
         {
-            _view.MakePanel(_layer, new Vector2(16, 326), new Vector2(240, 176), 0.84f);
+            var box = ViewFactory.Anchored(_layer, ViewFactory.Side.Start, ViewFactory.Side.Start,
+                new Vector2(16, 326), new Vector2(240, 176));
+            _view.MakePanel(box, Vector2.Zero, new Vector2(240, 176), 0.84f);
+
             string[] icons =
             {
                 SpriteMap.Item["key_yellow"], SpriteMap.Item["key_blue"],
@@ -122,65 +143,70 @@ namespace Tower.Game
             };
             for (int i = 0; i < icons.Length; i++)
             {
-                float y = 350 + i * 38;
-                _view.MakeSprite(icons[i], new Vector2(48, y + 12), 95, _layer);
-                _keyCounts[i] = _view.MakeLabel(_layer, new Vector2(74, y), 20, HorizontalAlignment.Left, Colors.White);
+                float y = 24 + i * 38;
+                _view.MakeSprite(icons[i], new Vector2(32, y + 12), 95, box);
+                _keyCounts[i] = _view.MakeLabel(box, new Vector2(58, y), 20, HorizontalAlignment.Left, Colors.White);
             }
         }
 
         /// <summary>戰鬥面板：鏡像排版的 VS 面板（原版做法），逐回合更新。</summary>
         private void BuildBattlePanel()
         {
-            _battle = new Control { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
-            _layer.AddChild(_battle);
+            // 置中：戰鬥面板是全畫面的焦點，任何比例下都該在正中間
+            _battle = ViewFactory.Anchored(_layer, ViewFactory.Side.Middle, ViewFactory.Side.Middle,
+                new Vector2(BoardCenterShift, -20), new Vector2(660, 240));
+            _battle.Visible = false;
 
-            _view.MakePanel(_battle, new Vector2(300, 230), new Vector2(660, 240), 0.93f, 110);
+            _view.MakePanel(_battle, Vector2.Zero, new Vector2(660, 240), 0.93f, 110);
 
-            _battleTitle = _view.MakeLabel(_battle, new Vector2(300, 240), 22, HorizontalAlignment.Center,
+            _battleTitle = _view.MakeLabel(_battle, new Vector2(0, 10), 22, HorizontalAlignment.Center,
                 new Color(1f, 0.85f, 0.4f), 120);
             _battleTitle.Size = new Vector2(660, 30);
 
-            BattleMonsterAnchor = new Vector2(360, 340);
-            BattleHeroAnchor = new Vector2(900, 340);
-
-            _battleMonIcon = new Sprite2D { Position = BattleMonsterAnchor, Scale = new Vector2(2, 2), ZIndex = 120,
-                TextureFilter = CanvasItem.TextureFilterEnum.Nearest };
+            // 錨點是**容器內**的座標；演出層要的是螢幕座標，由 BattleMonsterAnchor 取用時換算
+            _battleMonIcon = new Sprite2D
+            {
+                Position = new Vector2(60, 110), Scale = new Vector2(2, 2), ZIndex = 120,
+                TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
+            };
             _battle.AddChild(_battleMonIcon);
 
             _battleHeroIcon = new Sprite2D
             {
                 Texture = _view.GetTexture(SpriteMap.Hero(SpriteMap.HeroDirDown, 0)),
-                Position = BattleHeroAnchor, Scale = new Vector2(2, 2), ZIndex = 120,
+                Position = new Vector2(600, 110), Scale = new Vector2(2, 2), ZIndex = 120,
                 TextureFilter = CanvasItem.TextureFilterEnum.Nearest,
             };
             _battle.AddChild(_battleHeroIcon);
 
             // 鏡像排版：怪物「標籤：值」在左、玩家「值：標籤」在右，標籤朝內（原版做法）
-            _battleLeft = _view.MakeLabel(_battle, new Vector2(400, 285), 20, HorizontalAlignment.Left, Colors.White, 120);
+            _battleLeft = _view.MakeLabel(_battle, new Vector2(100, 55), 20, HorizontalAlignment.Left, Colors.White, 120);
             _battleLeft.Size = new Vector2(200, 120);
             _battleLeft.AutowrapMode = TextServer.AutowrapMode.Off;
 
-            _battleRight = _view.MakeLabel(_battle, new Vector2(660, 285), 20, HorizontalAlignment.Right, Colors.White, 120);
+            _battleRight = _view.MakeLabel(_battle, new Vector2(360, 55), 20, HorizontalAlignment.Right, Colors.White, 120);
             _battleRight.Size = new Vector2(200, 120);
 
-            _battleLoss = _view.MakeLabel(_battle, new Vector2(300, 408), 20, HorizontalAlignment.Center,
+            _battleLoss = _view.MakeLabel(_battle, new Vector2(0, 178), 20, HorizontalAlignment.Center,
                 new Color(1f, 0.45f, 0.4f), 120);
             _battleLoss.Size = new Vector2(660, 26);
 
-            _battleReward = _view.MakeLabel(_battle, new Vector2(300, 436), 20, HorizontalAlignment.Center,
+            _battleReward = _view.MakeLabel(_battle, new Vector2(0, 206), 20, HorizontalAlignment.Center,
                 new Color(1f, 0.55f, 0.85f), 120); // 原版的桃紅獎勵列
             _battleReward.Size = new Vector2(660, 26);
         }
 
         private void BuildDialogue()
         {
-            _dialogueBox = new Control { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
-            _layer.AddChild(_dialogueBox);
-            // 疊在棋盤下半部——原版就是把對話框蓋在地圖上，不是另闢一條空白區
-            _view.MakePanel(_dialogueBox, new Vector2(474, 520), new Vector2(620, 110), 0.92f, 115);
-            _dialogueSpeaker = _view.MakeLabel(_dialogueBox, new Vector2(492, 528), 18, HorizontalAlignment.Left,
+            // 貼底置中——原版就是把對話框蓋在地圖上，不是另闢一條空白區
+            _dialogueBox = ViewFactory.Anchored(_layer, ViewFactory.Side.Middle, ViewFactory.Side.End,
+                new Vector2(BoardCenterShift, 90), new Vector2(620, 110));
+            _dialogueBox.Visible = false;
+
+            _view.MakePanel(_dialogueBox, Vector2.Zero, new Vector2(620, 110), 0.92f, 115);
+            _dialogueSpeaker = _view.MakeLabel(_dialogueBox, new Vector2(18, 8), 18, HorizontalAlignment.Left,
                 new Color(1f, 0.85f, 0.4f), 120);
-            _dialogueText = _view.MakeLabel(_dialogueBox, new Vector2(492, 556), 20, HorizontalAlignment.Left,
+            _dialogueText = _view.MakeLabel(_dialogueBox, new Vector2(18, 36), 20, HorizontalAlignment.Left,
                 Colors.White, 120);
             _dialogueText.Size = new Vector2(584, 66);
             _dialogueText.AutowrapMode = TextServer.AutowrapMode.WordSmart;

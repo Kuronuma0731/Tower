@@ -45,10 +45,14 @@ namespace Tower.Verify
 
         public static FloorRegistry Run(string repo, Catalog catalog, Action<string, bool> check)
         {
-            string dir = Path.Combine(repo, "data", "floors");
-            var files = Directory.GetFiles(dir, "*.json").OrderBy(f => f).ToArray();
+            // 開發用樓層（設定層）也要驗——它不出貨，但**它是功能的測試場**，
+            // 資料寫壞了會讓人以為是功能壞了。FloorRegistry 不會把它排進塔（id 非 F##），
+            // 所以樓梯配對與難度錨點都不受影響。
+            var files = Directory.GetFiles(Path.Combine(repo, "data", "floors"), "*.json")
+                .Concat(SafeGlob(Path.Combine(repo, "data", "dev")))
+                .OrderBy(f => f).ToArray();
 
-            Console.WriteLine($"== 樓層（{files.Length} 層，自 data/floors/ 載入）==");
+            Console.WriteLine($"== 樓層（{files.Length} 層，含開發用）==");
 
             var floors = new List<FloorDefinition>();
             foreach (var f in files)
@@ -67,6 +71,8 @@ namespace Tower.Verify
             catch (Exception ex) { check($"樓梯座標對齊：{ex.Message}", false); }
 
             int carriedHp = StartHp;
+            CrossFloorSwitchTargets(floors, check);
+
             foreach (var floor in floors)
             {
                 var bad = floor.Entities
@@ -103,6 +109,45 @@ namespace Tower.Verify
             return registry;
         }
 
+        /// <summary>
+        /// 機關目標的 eid 完整性——**全塔範圍**（`data-schema.md` 的匯入驗證閘門）。
+        ///
+        /// 機關是全遊戲唯一能造成跨層依賴的機制，而 `FloorSolver` 在每層驗證時**忽略**開關
+        /// （註解寫著「由全塔檢查另管」）。那個全塔檢查以前只是一句承諾——
+        /// 指向不存在 eid 的機關不會被任何東西發現，而 dangling reference 正是
+        /// 跨層結構的頭號事故。
+        ///
+        /// 這裡只驗「目標存在」，不驗「跨層依賴是否可解」——後者要全塔搜索，
+        /// 成本是另一個量級（CONTEXT 驗證器詞條：全塔只做資源總量守恆檢查）。
+        /// </summary>
+        private static string[] SafeGlob(string dir)
+            => Directory.Exists(dir) ? Directory.GetFiles(dir, "*.json") : System.Array.Empty<string>();
+
+        private static void CrossFloorSwitchTargets(List<FloorDefinition> floors, Action<string, bool> check)
+        {
+            var allEids = new HashSet<string>();
+            foreach (var f in floors)
+                foreach (var e in f.Entities) allEids.Add(e.Eid);
+
+            var dangling = new List<string>();
+            int switches = 0, crossFloor = 0;
+            foreach (var f in floors)
+            foreach (var e in f.Entities)
+            {
+                if (e.Type != EntityType.Switch) continue;
+                switches++;
+                foreach (var t in e.SwitchTargets)
+                {
+                    if (!allEids.Contains(t)) dangling.Add($"{f.Id}/{e.Eid}→{t}");
+                    else if (!t.StartsWith(f.Id + "_", StringComparison.Ordinal)) crossFloor++;
+                }
+            }
+
+            check($"機關目標 eid 全部存在（{switches} 個機關，其中 {crossFloor} 條跨層）" +
+                  (dangling.Count > 0 ? $"　斷鏈：{string.Join("、", dangling)}" : ""),
+                dangling.Count == 0);
+        }
+
         /// <summary>入口＝下樓梯（座標對齊規約的落點）；沒有下樓梯的層用 spawn（僅序章層）。</summary>
         private static FloorEntity EntryOf(FloorDefinition floor)
             => floor.FindStairs(StairsDirection.Down)
@@ -115,6 +160,10 @@ namespace Tower.Verify
         /// </summary>
         private static void GuardEffectiveness(FloorDefinition floor, GridPos entryPos, Action<string, bool> check)
         {
+            // 開發用樓層豁免：設定層是**功能的測試場**，道具本來就該隨手拿得到，
+            // 要求它「東西都得用血換」是把內容規則套到工具上。
+            if (!FloorRegistry.IsTowerFloor(floor.Id)) return;
+
             int total = floor.Entities.Count(e => e.Type == EntityType.Item);
             if (total == 0) return;
 

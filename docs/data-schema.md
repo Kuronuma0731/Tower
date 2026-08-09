@@ -21,7 +21,9 @@
 | `def` | int | 防禦 | 24 |
 | `hp` | int | 生命 | 300 |
 | `agility` | int | 迴避率百分比 0–50（對應原版的敏欄）。D15：落空次數由此算死、順序隨機——玩家看得到閃避，總傷害仍是定值 |
-| `traits` | string | 特性組合，`\|` 分隔，空 = 無特性。合法值：`first_strike`（先攻）`multi_hit`（連擊）`pierce`（魔攻）`lifesteal`（吸血）。**支援可選參數** `名稱:值`——`multi_hit` 預設 2，`multi_hit:3` 即三連擊；`lifesteal` 預設 100%。MVP 四特性都用預設值，參數語法是為 11F+ 新特性預留的，**匯入器第一天就支援**，之後不用改資料格式 | `first_strike\|multi_hit` |
+| `traits` | string | 特性組合，`\|` 分隔，空 = 無特性。**合法值九種**：`first_strike`（先攻）`multi_hit`（連擊）`pierce`（魔攻）`lifesteal`（吸血）`adaptive_defense`（適應性防禦）`fixed_loss`（特殊戰鬥固定扣血）`weaken`（衰弱）`revive_as_weaker`（擊殺後再生）`poison`（中毒，D17）。未列的名稱在**載入期擲例外**——錯字不會流到玩家手上。另支援可選參數語法 `名稱:值` | `first_strike\|multi_hit` |
+| `trait_value` | int | **帶參數特性的數值，意義由特性決定**：適應性防禦＝我方單擊被壓到的上限；衰弱＝每挨一下扣多少攻擊；固定扣血＝損血量；中毒＝每步損血。一隻怪實務上最多帶一種帶參數特性，故共用一欄 | 8 |
+| `revive_into` | string | 擊殺後再生的目標怪 id（僅 `revive_as_weaker` 用），空 = 不再生。**目標必須存在於本表**，驗證器會檢查 | `slime_green` |
 | `gold_drop` | int | 擊殺金幣（D11 封閉經濟，總量設計時定死） | 200 |
 | `exp_drop` | int | 擊殺經驗 | 250 |
 | `is_guardian` | bool | 守關怪旗標——驗證器對它執法兩條合約（預覽必死＋零傷不可達），表現層加短演出 | TRUE |
@@ -30,7 +32,9 @@
 
 範例列（1F 起步怪）：`slime_green, 綠史萊姆, 12, 6, 40, , 3, 5, FALSE, mon_slime_g, `
 
-**怪物沒有執行期狀態。** 碰撞戰即刻結算，怪物不存在「打到一半」——存活與否全由 `GameState.ConsumedEids` 一個集合表達。這是本 schema 最大的簡化來源：不需要任何 per-monster 的 HP 存檔欄位。
+**怪物沒有 per-monster 的 HP 狀態。** 碰撞戰即刻結算，不存在「打到一半」——存活與否由 `GameState.ConsumedEids` 一個集合表達。這是本 schema 最大的簡化來源：不需要任何 per-monster 的 HP 存檔欄位。
+
+**唯一的例外是擊殺後再生**（`revive_as_weaker`）：那一格的怪會換成 `revive_into` 指定的較弱同系怪，記在 `GameState.RevivedMonsters`（eid → 現在站那格的怪 id）。格子仍然只有兩種可能狀態（原怪／再生怪），所以簡化的精神還在，但「eid 被消耗＝那格空了」不再永遠成立——判斷該格是否清空要同時看 `ConsumedEids` 與 `RevivedMonsters`。
 
 ## 2. items.csv — 道具表
 
@@ -40,7 +44,7 @@
 |---|---|---|
 | `id` | string | 唯一識別 |
 | `name_zh` | string | 顯示名 |
-| `category` | enum | `key` / `potion` / `gem` / `undo` |
+| `category` | enum | `key` / `potion` / `gem` / `undo` / `antidote`（D17：解除中毒） |
 | `key_tier` | enum | `yellow` / `blue` / `red`（僅 key） |
 | `heal_hp` | int | 回復量（僅 potion；HP 無上限，純加法） |
 | `atk_bonus` / `def_bonus` | int | 永久加成（僅 gem） |
@@ -147,10 +151,11 @@ ui-strings.csv: id, text_zh
 
 **真相在程式碼**：`src/Tower.Core/` 已實作，本節只做地圖，欄位以原始碼為準。
 
-- `Combat/MonsterDefinition.cs` — sealed class：Id、Atk、Def、Hp、Traits、GoldDrop、ExpDrop、IsGuardian
-- `Combat/TraitSet.cs` — `[Flags]`：None / FirstStrike / MultiHit / Pierce / Lifesteal
-- `Combat/CollisionOutcome.cs` — readonly struct：Winnable、ExpectedLoss、Rounds。`Winnable == false` ⇔「無法戰勝」（打不動或吸血淨削減 ≤ 0），UI 不顯示數字（D13：該格視同牆壁）
-- `Commands/GameState.cs` — 攤平的 Atk/Def/Hp/Gold/Exp/三色鑰匙/Hourglasses、`string CurrentFloor`、`GridPos Position`、`ConsumedEids`（封閉經濟帳本）、`PurchaseCounts`（鍵 `"shop_id:item_id"` / `"altar_id:stat"`）；`CombatStats` 唯讀視圖供結算、`Clone()` 為快照原語
+- `Combat/MonsterDefinition.cs` — sealed class：Id、Atk、Def、Hp、Traits、GoldDrop、ExpDrop、IsGuardian、NameZh、Agility、BestiaryNote、**TraitValue**、**ReviveInto**
+- `Combat/TraitSet.cs` — `[Flags]` **九種**：None / FirstStrike / MultiHit / Pierce / Lifesteal / AdaptiveDefense / FixedLoss / Weaken / ReviveAsWeaker / Poison
+- `Combat/CollisionOutcome.cs` — readonly struct：Winnable、ExpectedLoss、Rounds、Misses。`Winnable == false` ⇔「無法戰勝」（打不動、吸血淨削減 ≤ 0，或衰弱把刀鈍到砍不動），UI 不顯示數字（D13：該格視同牆壁）
+- `Commands/GameState.cs` — 攤平的 Atk/Def/Hp/Gold/Exp/三色鑰匙/Hourglasses、**PoisonPerStep**（D17）、`string CurrentFloor`、`GridPos Position`、`ConsumedEids`（封閉經濟帳本）、**RevivedMonsters**（擊殺後再生：eid → 現在站那格的怪）、**SeenMonsters**（怪物手冊；**刻意不走指令模式**——知識不是資源，回溯不該讓玩家忘記）、`PurchaseCounts`（鍵 `"shop_id:item_id"` / `"altar_id:stat"`）；`CombatStats` 唯讀視圖供結算、`Clone()` 為快照原語
+- `Save/` — `SaveGame`（快照＋指令流＋回溯機制，不管收費）、`SaveData`（可序列化的扁平鏡像）、`CommandRecord` / `CommandCodec`（指令 ↔ 記錄；**新增指令型別時兩邊都要加**，否則存檔會靜默漏掉一步）
 - `Grid/FloorGrid.cs` — 字元列解析器（本文件 §3 的 tiles 格式）＋單向格通行語義
 
 ---

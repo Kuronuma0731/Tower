@@ -45,7 +45,12 @@ namespace Tower.EditorDev
         /// 為什麼要這個：HUD 是**視覺**工作，而本專案已經三次「程式編得過、畫面上卻看不到」
         /// （字型抓不到、Game 視窗縮放裁切、螢幕空間 UI 偏移）。編譯通過證明不了版面對。
         /// </summary>
-        public static void Screenshot()
+        /// <summary>戰鬥定格截圖：同上，但先把 VS 面板與命中爆閃擺出來再拍。</summary>
+        public static void ScreenshotBattle() => Capture(true, "Logs/shot_battle.png");
+
+        public static void Screenshot() => Capture(false, "Logs/shot.png");
+
+        private static void Capture(bool poseBattle, string outPath)
         {
             const int width = 1920, height = 1080;
 
@@ -55,6 +60,8 @@ namespace Tower.EditorDev
             typeof(Tower.Game.GamePreviewBootstrap)
                 .GetMethod("Start", BindingFlags.Instance | BindingFlags.NonPublic)
                 ?.Invoke(boot, null);
+
+            if (poseBattle) boot.PoseBattleForCapture();
 
             var cam = Object.FindFirstObjectByType<Camera>();
             if (cam == null) { Debug.LogError("[TowerDev] 場景裡沒有相機，截圖中止"); EditorApplication.Exit(1); return; }
@@ -71,8 +78,8 @@ namespace Tower.EditorDev
             cam.targetTexture = null;
 
             System.IO.Directory.CreateDirectory("Logs");
-            System.IO.File.WriteAllBytes("Logs/shot.png", tex.EncodeToPNG());
-            Debug.Log($"[TowerDev] 截圖已存 Logs/shot.png（{width}x{height}）");
+            System.IO.File.WriteAllBytes(outPath, tex.EncodeToPNG());
+            Debug.Log($"[TowerDev] 截圖已存 {outPath}（{width}x{height}）");
 
             EditorApplication.Exit(0);
         }

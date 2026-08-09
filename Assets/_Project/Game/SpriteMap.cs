@@ -76,6 +76,14 @@ namespace Tower.Game
         /// <summary>行走幀序：0-1-2-1 的來回擺動比 0-1-2-3 更自然（RPG Maker 慣例）。</summary>
         public static readonly int[] WalkCycle = { 0, 1, 2, 1 };
 
+        /// <summary>
+        /// 命中爆閃（8 幀）。形狀與時序照原版 6219_newMT.swf 逐格量出來：
+        /// 白熱核心 → 八角黃星綻開 → 碎成橘色火花向外散開淡出。
+        /// 由 tools/make-fx.ps1 產生，不取自素材包——特效自己畫就沒有第三方授權問題。
+        /// </summary>
+        public static string Burst(int frame) => $"fx_burst_f{frame}";
+        public const int BurstFrames = 8;
+
         public const int HeroDirDown = 0;
         public const int HeroDirLeft = 1;
         public const int HeroDirRight = 2;

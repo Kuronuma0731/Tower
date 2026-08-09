@@ -383,62 +383,150 @@ namespace Tower.Game
         // ---- 演出 ----
 
         /// <summary>
-        /// 碰撞戰演出：衝撞 → 命中閃白 → 鏡頭震動 → 怪物消滅 → 傷害數字 → 戰報。
-        /// 不做逐回合動畫（D1 一次結算）——這是「撞上去的一瞬間」。
-        /// 回合數多則衝撞次數多（上限 3），硬仗在體感上就是比較久。
+        /// 碰撞戰演出——**照原版逐回合演**（6219_newMT.swf 實機錄影逐格比對）：
+        /// 開 VS 面板 → 每回合雙方各挨一下、體力數字一格一格掉、受擊處放黃色爆閃
+        /// 並跳紅色傷害數字向下飄散 → 結算列。
+        ///
+        /// 為什麼改掉原本的「瞬間結算＋衝撞」：D1 的一次結算是**規則**，不是表現。
+        /// 規則仍然一次算完（預覽與實戰同一個輸出，永遠不會騙人），這裡只是把已經
+        /// 算好的結果攤開來演。回合多的硬仗自然演得久，體感重量就出來了。
+        ///
+        /// 回合數上限 12：真打起來動輒數十回合，全演會拖垮節奏；超過就加快每回合的間隔。
         /// </summary>
         private IEnumerator BattleSequence(FloorEntity entity, MonsterDefinition monster, CollisionOutcome outcome)
         {
             _busy = true;
 
             var view = _entityViews.TryGetValue(entity.Eid, out var v) ? v : null;
-            var sr = view != null ? view.GetComponent<SpriteRenderer>() : null;
-            var heroHome = _hero.transform.position;
-            var target = WorldOf(entity.Pos);
             var camHome = _cam.transform.position;
 
-            int bumps = Mathf.Clamp(1 + outcome.Rounds / 12, 1, 3);
-            // D15：落空次數已算死，這裡只決定「哪幾下」演成閃避
-            int missBumps = outcome.Rounds > 0
-                ? Mathf.Min(bumps - 1, Mathf.RoundToInt(bumps * (float)outcome.Misses / outcome.Rounds))
-                : 0;
-            var missAt = new HashSet<int>();
-            while (missAt.Count < missBumps) missAt.Add(Random.Range(0, bumps));
+            int playerHit = Mathf.Max(0, _state.Atk - monster.Def);
+            int monsterHit = Mathf.Max(0, monster.Atk - _state.Def);
+            int hpBefore = _state.Hp;
 
-            for (int i = 0; i < bumps; i++)
+            _hud.OpenBattle(monster, monster.Hp, _state);
+            yield return Lerp(0.18f, _ => { });
+
+            // 全部回合都演會太久；壓到 12 次以內，每次代表若干回合
+            int shown = Mathf.Clamp(outcome.Rounds, 1, 12);
+            float beat = outcome.Rounds > 12 ? 0.16f : 0.26f;
+            int monsterHp = monster.Hp;
+            int playerHp = hpBefore;
+
+            // D15：落空次數已算死，這裡只決定「哪幾下」演成閃避
+            var missAt = new HashSet<int>();
+            int missShown = outcome.Rounds > 0
+                ? Mathf.Min(shown - 1, Mathf.RoundToInt(shown * (float)outcome.Misses / outcome.Rounds))
+                : 0;
+            while (missAt.Count < missShown) missAt.Add(Random.Range(0, shown));
+
+            for (int i = 0; i < shown; i++)
             {
+                bool last = i == shown - 1;
+
                 if (missAt.Contains(i))
                 {
-                    FloatText(entity.Pos, _text["msg_miss"], new Color(0.95f, 0.95f, 1f), 0.5f, 0.25f);
-                    yield return Lerp(0.14f, _ => { }); // 落空：不撞、不震、不閃
+                    FloatBattleText(_hud.BattleMonsterAnchor, _text["msg_miss"], new Color(0.95f, 0.95f, 1f));
+                    yield return Lerp(beat, _ => { });
                     continue;
                 }
 
-                // 守關怪用暴擊音，一般怪用平 A——聽覺上就分得出這場的份量
                 _audio.Play(monster.IsGuardian ? AudioBank.Crit : AudioBank.Attack);
 
-                var lunge = Vector3.Lerp(heroHome, target, 0.35f);
-                yield return Lerp(0.07f, t => _hero.transform.position = Vector3.Lerp(heroHome, lunge, t));
+                // 我方先手：怪先挨
+                monsterHp = last ? 0 : Mathf.Max(0, monsterHp - Mathf.CeilToInt(monster.Hp / (float)shown));
+                StartCoroutine(Burst(_hud.BattleMonsterAnchor));
+                FloatBattleText(_hud.BattleMonsterAnchor, playerHit.ToString(), new Color(1f, 0.25f, 0.2f));
+                _hud.SetBattleHp(monsterHp, playerHp, _state);
+                yield return Lerp(beat * 0.45f, t =>
+                    _cam.transform.position = camHome + (Vector3)(Random.insideUnitCircle * 0.06f * (1f - t)));
 
-                if (sr != null) { sr.color = Color.white; view.transform.localScale = Vector3.one * 1.18f; }
-                yield return Lerp(0.09f, t =>
+                // 怪還手——最後一回合牠已經倒下，不還手
+                if (!last && monsterHit > 0)
                 {
-                    _cam.transform.position = camHome + (Vector3)(Random.insideUnitCircle * 0.09f * (1f - t));
-                    if (sr != null) sr.color = Color.Lerp(Color.white, new Color(1f, 0.45f, 0.4f), t);
-                });
-                if (sr != null) view.transform.localScale = Vector3.one;
-
-                yield return Lerp(0.06f, t => _hero.transform.position = Vector3.Lerp(lunge, heroHome, t));
+                    playerHp = Mathf.Max(hpBefore - outcome.ExpectedLoss,
+                                         playerHp - Mathf.CeilToInt(outcome.ExpectedLoss / (float)(shown - 1)));
+                    StartCoroutine(Burst(_hud.BattleHeroAnchor));
+                    FloatBattleText(_hud.BattleHeroAnchor, monsterHit.ToString(), new Color(1f, 0.25f, 0.2f));
+                    _hud.SetBattleHp(monsterHp, playerHp, _state);
+                }
+                yield return Lerp(beat * 0.55f, _ => { });
             }
 
-            _hero.transform.position = heroHome;
             _cam.transform.position = camHome;
 
             if (view != null) Destroy(view); // 預覽標籤是子物件，一起走
             FloatText(entity.Pos, $"-{outcome.ExpectedLoss}", new Color(1f, 0.32f, 0.28f), 0.62f, 0f);
             if (monster.GoldDrop > 0) _audio.Play(AudioBank.Gold, 0.7f);
-            _hud.ShowReceipt(monster, outcome, _state);
+            _hud.CloseBattle(monster, outcome);
             _busy = false;
+        }
+
+        /// <summary>
+        /// 截圖用：把戰鬥中的某一幀**靜態擺出來**。協程在編輯模式不會執行，
+        /// 所以無頭截圖看不到演出——這個方法讓版面與特效位置仍然驗得到。
+        /// 只給 DevAutomation.ScreenshotBattle 用，不參與遊戲流程。
+        /// </summary>
+        public void PoseBattleForCapture(int burstFrame = 4)
+        {
+            var monster = _catalog.Monsters["slime_red"];
+            _hud.OpenBattle(monster, 32, _state);
+            _hud.SetBattleHp(32, _state.Hp - 20, _state);
+
+            foreach (var (anchor, dmg) in new[]
+            {
+                (_hud.BattleMonsterAnchor, (_state.Atk - monster.Def).ToString()),
+                (_hud.BattleHeroAnchor, (monster.Atk - _state.Def).ToString()),
+            })
+            {
+                var b = _view.MakeSprite(SpriteMap.Burst(burstFrame), anchor + new Vector3(0, 0, -0.2f), 130, "burst");
+                b.transform.localScale = Vector3.one * 1.45f;
+
+                var tm = _view.MakeText(null, anchor + new Vector3(-0.85f, -0.95f, -0.3f), 0.62f, TextAnchor.MiddleCenter, 135);
+                tm.text = dmg;
+                tm.color = new Color(1f, 0.25f, 0.2f);
+            }
+        }
+
+        /// <summary>命中爆閃：8 幀黃星疊在受擊者身上（原版的命中表現）。</summary>
+        private IEnumerator Burst(Vector3 at)
+        {
+            var go = _view.MakeSprite(SpriteMap.Burst(0), at + new Vector3(0, 0, -0.2f), 130, "burst");
+            var sr = go.GetComponent<SpriteRenderer>();
+            go.transform.localScale = Vector3.one * 1.45f;
+
+            const float perFrame = 0.035f;
+            for (int f = 0; f < SpriteMap.BurstFrames; f++)
+            {
+                sr.sprite = _view.GetSprite(SpriteMap.Burst(f));
+                yield return new WaitForSeconds(perFrame);
+            }
+            Destroy(go);
+        }
+
+        /// <summary>
+        /// 戰鬥面板上的傷害數字：紅字**向下**飄再淡出。
+        /// 向下是原版的做法（一般遊戲往上飄）——照抄，懷舊感就在這種小地方。
+        /// </summary>
+        private void FloatBattleText(Vector3 at, string text, Color color)
+        {
+            var tm = _view.MakeText(null, at + new Vector3(-0.85f, -0.75f, -0.3f), 0.62f, TextAnchor.MiddleCenter, 135);
+            tm.text = text;
+            tm.color = color;
+            StartCoroutine(FloatDownAndFade(tm));
+        }
+
+        private IEnumerator FloatDownAndFade(TextMesh tm)
+        {
+            var a = tm.transform.position;
+            var b = a + new Vector3(0, -0.75f, 0);
+            var c0 = tm.color;
+            yield return Lerp(0.55f, t =>
+            {
+                tm.transform.position = Vector3.Lerp(a, b, t);
+                tm.color = new Color(c0.r, c0.g, c0.b, 1f - t * t);
+            });
+            if (tm != null) Destroy(tm.gameObject);
         }
 
         /// <summary>走一格：0.1 秒滑過去，中途換一次走路幀。連走時每步緊接下一步。</summary>

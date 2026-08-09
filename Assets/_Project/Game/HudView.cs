@@ -213,18 +213,41 @@ namespace Tower.Game
             _keyCounts[3].text = $"×  {s.Hourglasses}";
         }
 
-        public void ShowReceipt(MonsterDefinition m, in CollisionOutcome outcome, GameState after, float seconds = 2.2f)
+        /// <summary>開啟 VS 面板並填入起始數值；之後由 <see cref="SetBattleHp"/> 逐回合更新。</summary>
+        public void OpenBattle(MonsterDefinition m, int monsterHp, GameState player)
         {
             _receiptTitle.text = $"{m.NameZh}　　{_text["lbl_vs"]}　　{_text["lbl_hero"]}";
             _receiptIcon.sprite = _view.GetSprite(SpriteMap.MonsterFrame(m.Id, 0));
-            _receiptLeft.text = $"{_text["lbl_hp"]}：{m.Hp}\n{_text["lbl_atk"]}：{m.Atk}\n{_text["lbl_def"]}：{m.Def}";
-            _receiptRight.text = $"{after.Hp}：{_text["lbl_hp"]}\n{after.Atk}：{_text["lbl_atk"]}\n{after.Def}：{_text["lbl_def"]}";
+            _battleMonster = m;
+            SetBattleHp(monsterHp, player.Hp, player);
+            _receiptLoss.text = "";
+            _receiptReward.text = "";
+            _receipt.SetActive(true);
+            _receiptUntil = float.MaxValue; // 演出期間不自動關
+        }
+
+        /// <summary>逐回合更新雙方體力——原版的體感來自看著數字一格一格掉。</summary>
+        public void SetBattleHp(int monsterHp, int playerHp, GameState player)
+        {
+            var m = _battleMonster;
+            _receiptLeft.text = $"{_text["lbl_hp"]}：{Mathf.Max(0, monsterHp)}\n{_text["lbl_atk"]}：{m.Atk}\n{_text["lbl_def"]}：{m.Def}";
+            _receiptRight.text = $"{playerHp}：{_text["lbl_hp"]}\n{player.Atk}：{_text["lbl_atk"]}\n{player.Def}：{_text["lbl_def"]}";
+        }
+
+        /// <summary>結算列：損血與獎勵，並開始倒數關閉。</summary>
+        public void CloseBattle(MonsterDefinition m, in CollisionOutcome outcome, float seconds = 1.5f)
+        {
             _receiptLoss.text = $"{_text["lbl_hp"]} -{outcome.ExpectedLoss}";
             _receiptReward.text =
                 $"{_text["lbl_victory"]}　{_text["lbl_reward_exp"]} +{m.ExpDrop}　{_text["lbl_reward_gold"]} +{m.GoldDrop}";
-            _receipt.SetActive(true);
             _receiptUntil = Time.time + seconds;
         }
+
+        /// <summary>面板上的座標：怪物頭像 / 勇者頭像，供演出層放爆閃與傷害數字。</summary>
+        public Vector3 BattleMonsterAnchor => _receipt.transform.position + new Vector3(-4.15f, 0.35f, 0);
+        public Vector3 BattleHeroAnchor => _receipt.transform.position + new Vector3(4.15f, 0.35f, 0);
+
+        private MonsterDefinition _battleMonster;
 
         public void HideReceipt() => _receipt.SetActive(false);
 

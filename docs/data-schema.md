@@ -1,9 +1,9 @@
 # 資料欄位設計 — 試算表 / 樓層 JSON / Core POCO（草案，待使用者確認）
 
-數值管線的形狀：**試算表（CSV）→ DataPipeline 匯入 → ScriptableObject → Bootstrap 轉 POCO → Core**。
-設計師（你）只碰 CSV 和關卡編輯器，不碰 Inspector。
+數值管線的形狀：**CSV（`data/`）→ `Catalog.Load(csv 文字)` → POCO → Core**。中間沒有匯入步驟、沒有引擎資產型別——`Catalog.Load` 吃的是**文字**不是路徑，所以 Core 不需要知道 `res://` 或檔案系統，遊戲與驗證器可以用同一個函式從不同來源餵資料。
+設計師（你）只碰 `data/*.csv` 與關卡編輯器。
 
-**CSV 實體檔已存在於 repo 根層 `data/`**（文本骨架先於 Core，2026-08-08 決策）。Godot 專案建立後由 DataPipeline 從此處讀取；`data/` 是唯一的編輯位置。
+**`data/` 是唯一的編輯位置，也是執行期真的讀的那一份**——Godot 以 `res://data/` 直接定址，沒有副本。（Unity 時期必須複製一份到 `StreamingAssets`，那份漂移過，害序章劇情整段不顯示；D16 換引擎後這個病從根上消失。）
 
 **鐵則：程式碼禁止出現玩家可見字串。** 所有玩家看得到的文字——按鈕、訊息、對話、描述——一律走 `ui-strings.csv` / `dialogues.csv` / 各表的 `*_zh` 欄，程式只認 id。日後本地化 = 換表，不是掃程式碼。
 
@@ -145,7 +145,7 @@ ui-strings.csv: id, text_zh
 
 ## 6. Core POCO（實作為準）
 
-**真相在程式碼**：`Assets/_Project/Core/` 已實作，本節只做地圖，欄位以原始碼為準。
+**真相在程式碼**：`src/Tower.Core/` 已實作，本節只做地圖，欄位以原始碼為準。
 
 - `Combat/MonsterDefinition.cs` — sealed class：Id、Atk、Def、Hp、Traits、GoldDrop、ExpDrop、IsGuardian
 - `Combat/TraitSet.cs` — `[Flags]`：None / FirstStrike / MultiHit / Pierce / Lifesteal

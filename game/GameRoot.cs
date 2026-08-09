@@ -381,7 +381,10 @@ namespace Tower.Game
             tw.TweenProperty(_hero, "position", LocalOf(to), 0.10);
             await ToSignal(tw, Tween.SignalName.Finished);
 
-            _state.Position = to;
+            // D7：**所有**狀態變更都走指令模式，移動也不例外。
+            // 直接寫 _state.Position 會讓回溯永遠回不了一步移動——而 D7 明白寫著
+            // 「第一個放寬的閥門是純移動一步免費收回」，那個閥門得先存在才談得上放寬。
+            Apply(new MoveCommand(from, to));
             _busy = false;
         }
 

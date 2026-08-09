@@ -12,11 +12,11 @@ powershell -File tools/slice-sheets.ps1 -SourceDir "G:\圖片放置\魔塔" -Out
 
 策展層檔案一律 **128×128 = 4×4 的 32px 格**（列＝變體、行＝動畫幀）。切片產出 1454 格，命名 `<表名>_r<列>_c<行>.png`。
 
-再依下方對照表複製到 `art/pixel/sprites/`，並同步到 `Assets/StreamingAssets/sprites/`。
+再依下方對照表複製到 `assets/sprites/`（Godot 以 `res://assets/sprites/` 讀取；該資料夾不進版控）。命中爆閃另由 `tools/make-fx.ps1` 產生 8 幀。
 
 ## 換素材的唯一接觸點
 
-`Assets/_Project/Game/SpriteMap.cs` 是**全遊戲唯一知道檔名的地方**。遊戲邏輯只講概念 id；換整套素材＝改那一個檔 + 換 `sprites/` 內容，邏輯零改動。這是 D14 授權風險的緩解設計。
+`game/SpriteMap.cs` 是**全遊戲唯一知道檔名的地方**。遊戲邏輯只講概念 id；換整套素材＝改那一個檔 + 換 `sprites/` 內容，邏輯零改動。這是 D14 授權風險的緩解設計。
 
 ## 對照表
 
@@ -71,7 +71,7 @@ powershell -File tools/slice-sheets.ps1 -SourceDir "G:\圖片放置\魔塔" -Out
 
 ## 渲染要求（不可省）
 
-像素素材必須 **Point filter + Clamp + PPU 32**（一格＝一世界單位），否則整套糊掉。已寫死在 `GamePreviewBootstrap.GetSprite`。
+像素素材必須用 **Nearest filter**，否則整套糊掉。專案層級已設於 `project.godot`（`default_texture_filter=0`），節點層級另由 `ViewFactory` 對每個 Sprite2D/Label 指定。
 
 ## 未做
 

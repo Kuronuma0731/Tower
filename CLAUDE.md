@@ -54,12 +54,12 @@ components, scenes, prefabs, or workflows unless explicitly requested.
 
 ## Project Direction
 
-Target game: - 2D dungeon / 魔塔 RPG - Multiple dungeon floors (B1--B10
+Target game: - 2D dungeon / 魔塔 RPG - Multiple dungeon floors (1F--10F
 and expandable) - Grid-based or tile-based movement - Player, enemies,
 NPCs, items, doors, keys, treasure - Battle/stat systems - Dialogue and
 events - Save/load - Custom UI - Custom character art
 
-Current art naming examples: - `hero_down` - `hero_up` - `npc_guard_old`
+Current art naming examples: - `hero_d0_f0` (4 directions x 4 walk frames) - `mon_slime_g_f0` - `npc_guard_old`
 
 ## Godot Architecture Rules
 

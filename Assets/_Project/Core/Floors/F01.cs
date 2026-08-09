@@ -20,6 +20,8 @@ namespace Tower.Core.Floors
     public static class F01
     {
         public static readonly GridPos SpawnPos = new GridPos(6, 11);
+        /// <summary>下樓梯＝回 F00 序章層。座標對齊 F00 的上樓梯。</summary>
+        public static readonly GridPos StairsDownPos = new GridPos(6, 11);
         public static readonly GridPos StairsUpPos = new GridPos(6, 1);
 
         public static FloorDefinition Build()
@@ -46,8 +48,9 @@ namespace Tower.Core.Floors
 
             var entities = new List<FloorEntity>
             {
-                new FloorEntity("F01_sp1", EntityType.Spawn, SpawnPos),
                 new FloorEntity("F01_n01", EntityType.Npc, new GridPos(5, 11), dialogueId: "dlg_f01_intro"),
+                // 下樓梯就在進場點——回得去 F00，也是座標對齊規約的落點
+                new FloorEntity("F01_sd1", EntityType.Stairs, StairsDownPos, stairs: StairsDirection.Down),
                 new FloorEntity("F01_s01", EntityType.Stairs, StairsUpPos, stairs: StairsDirection.Up),
 
                 // 主門不上鎖——它是唯一通往上層的路，鎖住它等於讓玩家有機會把自己關死

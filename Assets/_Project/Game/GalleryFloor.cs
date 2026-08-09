@@ -56,7 +56,7 @@ namespace Tower.Game
 
             e.Add(new FloorEntity("G_sp", EntityType.Spawn, SpawnPos));
 
-            return new FloorDefinition("F00", FloorGrid.Parse(rows), e, nameZh: "");
+            return new FloorDefinition("GALLERY", FloorGrid.Parse(rows), e, nameZh: "");
         }
 
         // 數值一律來自 Catalog（data/monsters.csv、data/items.csv）——展示層曾因自帶

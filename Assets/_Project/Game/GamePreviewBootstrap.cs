@@ -85,7 +85,8 @@ namespace Tower.Game
             _hud = new HudView(_view, _text);
             _audio = AudioBank.Create(transform);
 
-            LoadFloor("F01");
+            LoadFloor("F00");      // 從序章層開場，照原版
+            StartDialogue("dlg_f00_prologue");
         }
 
         private void BuildCamera()
@@ -121,23 +122,25 @@ namespace Tower.Game
             _hud.HideDialogue();
             _hud.HideReceipt();
 
-            bool gallery = id == "F00";
+            bool gallery = id == "GALLERY";
             var carried = _state; // 換樓層時屬性與道具要帶著走
 
             _floor = id switch
             {
-                "F00" => GalleryFloor.Build(),
+                "GALLERY" => GalleryFloor.Build(),
+                "F00" => F00.Build(),
                 "F02" => F02.Build(),
                 _ => F01.Build(),
             };
 
-            _state = carried != null && !gallery && carried.CurrentFloor != "F00"
+            _state = carried != null && !gallery && carried.CurrentFloor != "GALLERY"
                 ? carried
                 : new GameState { Atk = 10, Def = 10, Hp = 1000 }; // data/balance.csv 鏡像
             _state.CurrentFloor = id;
             _state.Position = entryPos ?? id switch
             {
-                "F00" => GalleryFloor.SpawnPos,
+                "GALLERY" => GalleryFloor.SpawnPos,
+                "F00" => F00.SpawnPos,
                 "F02" => F02.StairsDownPos,
                 _ => F01.SpawnPos,
             };
@@ -219,7 +222,7 @@ namespace Tower.Game
             }
 
             // G＝展示層開/關、F＝回 1F
-            if (Input.GetKeyDown(KeyCode.G)) { LoadFloor(_state.CurrentFloor == "F00" ? "F01" : "F00"); return; }
+            if (Input.GetKeyDown(KeyCode.G)) { LoadFloor(_state.CurrentFloor == "GALLERY" ? "F01" : "GALLERY"); return; }
             if (Input.GetKeyDown(KeyCode.F) && _state.CurrentFloor != "F01") { LoadFloor("F01"); return; }
 
             var held = ReadHeldDirection();
@@ -320,12 +323,23 @@ namespace Tower.Game
             }
             else if (here.Type == EntityType.Stairs)
             {
+                // 踏上塔門那一刻的宣言——原版的收尾，說完才進塔
+                if (_state.CurrentFloor == "F00" && here.Stairs == StairsDirection.Up
+                    && !_dialogueSeenAll.Contains("dlg_f00_gate"))
+                {
+                    StartDialogue("dlg_f00_gate");
+                    return;
+                }
+
                 _audio.Play(AudioBank.Stairs);
                 // 樓層間真的走得通了；座標對齊規約：落在對應的另一道樓梯上
-                if (here.Stairs == StairsDirection.Up && _state.CurrentFloor == "F01")
-                { LoadFloor("F02", F02.StairsDownPos); return; }
-                if (here.Stairs == StairsDirection.Down && _state.CurrentFloor == "F02")
-                { LoadFloor("F01", F01.StairsUpPos); return; }
+                switch (_state.CurrentFloor, here.Stairs)
+                {
+                    case ("F00", StairsDirection.Up): LoadFloor("F01", F01.StairsDownPos); return;
+                    case ("F01", StairsDirection.Down): LoadFloor("F00", F00.StairsUpPos); return;
+                    case ("F01", StairsDirection.Up): LoadFloor("F02", F02.StairsDownPos); return;
+                    case ("F02", StairsDirection.Down): LoadFloor("F01", F01.StairsUpPos); return;
+                }
                 _hud.Toast(_text["msg_demo_end"], 5f);
             }
         }
@@ -354,14 +368,14 @@ namespace Tower.Game
 
         private string FloorLabel()
         {
-            if (_state.CurrentFloor == "F00") return _text["gallery_name"];
+            if (_state.CurrentFloor == "GALLERY") return _text["gallery_name"];
             int n = int.Parse(_state.CurrentFloor.Substring(1));
             return _text["msg_floor_enter"].Replace("{n}", n.ToString());
         }
 
         private void RefreshHud()
         {
-            _hud.SetFloor(FloorLabel(), _state.CurrentFloor == "F00" ? "" : _floor.NameZh);
+            _hud.SetFloor(FloorLabel(), _state.CurrentFloor == "GALLERY" ? "" : _floor.NameZh);
             _hud.SetStats(_state);
         }
 
@@ -636,9 +650,17 @@ namespace Tower.Game
             _dialogueIndex++;
             if (_dialogueIndex >= _activeDialogue.Count)
             {
-                _dialogueSeenAll.Add(_dialogueCurrentId);
+                string finished = _dialogueCurrentId;
+                _dialogueSeenAll.Add(finished);
                 _activeDialogue = null;
                 _hud.HideDialogue();
+
+                // 塔門宣言講完就進塔——否則玩家會站在樓梯上，而樓梯只在「踏入」時觸發
+                if (finished == "dlg_f00_gate")
+                {
+                    _audio.Play(AudioBank.Stairs);
+                    LoadFloor("F01", F01.StairsDownPos);
+                }
                 return;
             }
             _hud.ShowDialogue(_activeDialogue[_dialogueIndex]);

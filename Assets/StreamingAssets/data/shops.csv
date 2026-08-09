@@ -1,0 +1,4 @@
+shop_id,item_id,base_price,price_step
+shop_f03,potion_s,80,20
+shop_f03,key_yellow,50,25
+shop_f03,potion_l,200,50

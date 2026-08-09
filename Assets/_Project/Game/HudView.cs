@@ -260,7 +260,8 @@ namespace Tower.Game
 
         public void ShowDialogue(in TextBank.Line line)
         {
-            _dialogueSpeaker.text = $"【{line.Speaker}】";
+            // 旁白（序章劇情）沒有說話者——不要印出空的【】
+            _dialogueSpeaker.text = string.IsNullOrEmpty(line.Speaker) ? "" : $"【{line.Speaker}】";
             _dialogueText.text = line.Text;
             _dialogueBox.SetActive(true);
         }

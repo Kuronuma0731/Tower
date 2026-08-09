@@ -1,0 +1,4 @@
+altar_id,stat,exp_cost,gain,cost_step
+altar_std,atk,20,1,5
+altar_std,def,20,1,5
+altar_std,hp,20,50,5

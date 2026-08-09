@@ -45,6 +45,7 @@ namespace Tower.Verify
             CommandChecks();
             GridChecks();
             SolverChecks(catalog);
+            F00Checks(catalog);
             F01Checks(catalog);
             F02Checks(catalog);
             FloorPairingChecks();
@@ -73,6 +74,33 @@ namespace Tower.Verify
             bool threw = false;
             try { Catalog.ParseTraits("first_stirke"); } catch (ArgumentException) { threw = true; }
             Check("未知特性名在載入期擲例外（錯字不會流到玩家手機）", threw);
+
+            StreamingAssetsInSync();
+        }
+
+        /// <summary>
+        /// data/ 是唯一真相，但 Unity 執行期讀的是 Assets/StreamingAssets/data/ 的副本。
+        /// 這兩份會漂移——序章對話加在 data/ 卻沒同步，遊戲就一句話都不顯示，查了半天。
+        /// 用 tools/sync-data.ps1 同步。
+        /// </summary>
+        private static void StreamingAssetsInSync()
+        {
+            string repo = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+            string src = Path.Combine(repo, "data");
+            string dst = Path.Combine(repo, "Assets", "StreamingAssets", "data");
+            if (!Directory.Exists(dst)) { Check("StreamingAssets/data 存在", false); return; }
+
+            var stale = new List<string>();
+            foreach (var f in Directory.GetFiles(src, "*.csv"))
+            {
+                string mirror = Path.Combine(dst, Path.GetFileName(f));
+                if (!File.Exists(mirror) || File.ReadAllText(mirror) != File.ReadAllText(f))
+                    stale.Add(Path.GetFileName(f));
+            }
+            Check(stale.Count == 0
+                    ? "StreamingAssets/data 與 data/ 一致"
+                    : $"StreamingAssets/data 落後：{string.Join(",", stale)}（跑 tools/sync-data.ps1）",
+                stale.Count == 0);
         }
 
         // boss-test-8f.md 的驗收向量
@@ -248,6 +276,27 @@ namespace Tower.Verify
                 sl.ExpectedLoss == 32 && bt.ExpectedLoss == 132);
         }
 
+        private static void F00Checks(Catalog catalog)
+        {
+            Console.WriteLine("== F00 序章 ==");
+            Check("引用的怪與道具都在表內",
+                F00.MonsterRefs.All(catalog.Monsters.ContainsKey) && F00.ItemRefs.All(catalog.Items.ContainsKey));
+
+            var start = new GameState { Atk = 10, Def = 10, Hp = 1000 };
+            var result = new FloorSolver(F00.Build(), catalog.Monsters, catalog.Items)
+                .Solve(start, F00.SpawnPos, F00.StairsUpPos);
+            Check($"可解 {result.Status} exitHp={result.BestExitHp}（1000 −32 綠史萊姆 +200 血瓶 = 1168）",
+                result.Status == SolverStatus.Solvable && result.BestExitHp == 1168);
+
+            // 序章不該有任何會擋死新手的東西：每隻怪都打得起
+            var lethal = F00.Build().Entities
+                .Where(e => e.Type == EntityType.Monster)
+                .Select(e => CombatResolver.ResolveCollision(new PlayerStats(10, 10), catalog.Monsters[e.Ref]))
+                .Where(o => !o.Winnable || o.ExpectedLoss >= 1000)
+                .ToArray();
+            Check($"序章沒有打不過的怪（D13 牆留給 1F 才登場）", lethal.Length == 0);
+        }
+
         private static void F02Checks(Catalog catalog)
         {
             Console.WriteLine("== F02 ==");
@@ -340,13 +389,22 @@ namespace Tower.Verify
         private static void FloorPairingChecks()
         {
             Console.WriteLine("== 跨層規約 ==");
+            RefsMatchPlacement("F00", F00.Build(), F00.MonsterRefs, F00.ItemRefs);
             RefsMatchPlacement("F01", F01.Build(), F01.MonsterRefs, F01.ItemRefs);
             RefsMatchPlacement("F02", F02.Build(), F02.MonsterRefs, F02.ItemRefs);
             GuardEffectiveness("F01", F01.Build(), new GameState { Atk = 10, Def = 10, Hp = 1000 }, F01.SpawnPos);
             GuardEffectiveness("F02", F02.Build(), new GameState { Atk = 10, Def = 10, Hp = 1400 }, F02.StairsDownPos);
             // floor-authoring.md：F(n) 的上樓梯與 F(n+1) 的下樓梯同座標
+            Check($"F00 上樓梯 {F00.StairsUpPos} == F01 下樓梯 {F01.StairsDownPos}",
+                F00.StairsUpPos == F01.StairsDownPos);
             Check($"F01 上樓梯 {F01.StairsUpPos} == F02 下樓梯 {F02.StairsDownPos}",
                 F01.StairsUpPos == F02.StairsDownPos);
+
+            var f00 = F00.Build();
+            Check("F00 的上樓梯實體在宣告座標上",
+                f00.FindStairs(StairsDirection.Up)?.Pos == F00.StairsUpPos);
+            Check("F01 的下樓梯實體在宣告座標上",
+                F01.Build().FindStairs(StairsDirection.Down)?.Pos == F01.StairsDownPos);
 
             var f01 = F01.Build();
             var f02 = F02.Build();

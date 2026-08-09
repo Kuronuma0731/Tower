@@ -16,6 +16,8 @@ Current state: design docs complete and audited; art complete (38/38 sprites in 
 dotnet run --project tools/CoreVerify
 ```
 
+`data/*.csv` is the source of truth, but the game loads from `Assets/StreamingAssets/data/` — run `powershell -File tools/sync-data.ps1` after editing any CSV, or the game silently reads stale data (CoreVerify checks this).
+
 For the Unity side, `-batchmode -quit` **exits before compilation finishes** and its log will look clean even when the build is broken — that false negative has bitten twice. Use `-batchmode -executeMethod Tower.EditorDev.DevAutomation.CompileOnly` instead: Unity finishes compiling before running the method, so a log with no `error CS` is then trustworthy.
 
 Once Unity has opened the project, `*.meta` files MUST be committed — never gitignore them. Art and audio are **not** tracked (see `.gitignore`); rebuild them from the pack per `docs/art-assets.md`.
